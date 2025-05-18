@@ -1,0 +1,23 @@
+{
+    "name": "backend",
+    "dockerComposeFile": [
+        "../../docker-compose.yaml"
+    ],
+    "service": "backend",
+    "shutdownAction": "none",
+    "workspaceFolder": "/usr/src/backend",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.vscode-pylance",
+                "ms-toolsai.jupyter",
+                "ms-python.python",
+                "ms-python.ruff",
+                "charliermarsh.ruff"
+            ]
+        }
+    },
+    "remoteEnv": {
+        "PYTHONPATH": "/usr/src/packages:/usr/src/backend"
+    }
+}
