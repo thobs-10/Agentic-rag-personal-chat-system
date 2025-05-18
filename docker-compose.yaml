@@ -1,0 +1,76 @@
+services:
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: qdrant-db
+    volumes:
+      - .qdrant:/qdrant_db
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    environment:
+      - QDRANT_SERVER_HOST=0.0.0.0
+      - QDRANT_SERVER_PORT=6333
+      - QDRANT_DB_NAME=qdrant_db
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  backend:
+    image: backend:latest
+    container_name: backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "5001:5000"
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./backend:/usr/src/backend
+    working_dir: /usr/src/backend
+    tty: true
+    stdin_open: true
+    # command: uvicorn main:app --host 0.0.0 --port 5000 --reload
+    command: /bin/sh
+    env_file:
+      - .env
+    networks:
+      - app-network
+    depends_on:
+      - qdrant
+  
+  
+  ingestion:
+    image: ingestion:latest
+    container_name: ingestion
+    build:
+      context: ./ingestion
+      dockerfile: Dockerfile
+    volumes:
+      - ./ingestion:/usr/src/ingestion
+    working_dir: /usr/src/ingestion
+    tty: true
+    stdin_open: true
+    environment:
+      - PYTHONUNBUFFERED=1
+    ports:
+      - "8502:8502"
+    # command: python src/run_ingestion.py
+    command: /bin/sh
+    networks:
+      - app-network
+    env_file:
+      - .env
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  qdrant:
+    driver: local
+  qdrant_db:
+    driver: local
+  .qdrant:
+    driver: local
