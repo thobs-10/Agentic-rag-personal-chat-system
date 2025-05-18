@@ -4,7 +4,43 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "zenml>=0.75.0",
+    "pytest>=8.3.4",
+    "pytest-mock>=3.14.0",
+    "cloudpickle==2.2.1",      # From your requirements.txt
+    "pytest-xdist>=3.6.1",
+    "pytest-cov>=6.0.0",
+    "pytest-instafail>=0.5.0",
+    "pytest-randomly>=3.16.0",
+    "pre_commit>=4.2.0",
+    "loguru>=0.7.3",
+    "pydantic>=2.8.2",
+    "setuptools-scm>=8.2.0",
+]
 
 [tool.uv.workspace]
 members = ["ingestion", "backend", "frontend"]
+
+[project.optional-dependencies]
+dev = ["ruff==0.4.4", "setuptools_scm>=8.2.0"]
+
+[tool.setuptools_scm]
+write_to = "_version.py"
+version_scheme = "release-branch-semver"
+
+[tool.ruff]
+line-length = 100
+select = ["E", "F", "W", "I", "C", "B"]
+ignore = ["E501"]
+
+[tool.ruff.isort]
+known-first-party = ["src"]
+
+[tool.bandit]
+exclude_dirs = ["src/tests", "docs", "build", "dist", "venv", ".venv"]
+skips = ["B101"]
+
+[tool.mypy]
+strict = true
+ignore_missing_imports = true
