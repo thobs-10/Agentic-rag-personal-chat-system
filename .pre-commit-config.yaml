@@ -47,6 +47,10 @@ repos:
         args: ["--branch=main"]
       # Detects the presence of private keys
       - id: detect-private-key
+      # detects errors in toml files
+      - id: check-toml
+      # detect case conflicts
+      - id: check-case-conflict
 
   - repo: https://github.com/charliermarsh/ruff-pre-commit
     rev: "v0.4.4"
