@@ -8,7 +8,7 @@ dependencies = [
     "zenml>=0.75.0",
     "pytest>=8.3.4",
     "pytest-mock>=3.14.0",
-    "cloudpickle==2.2.1",           # From your requirements.txt
+    "cloudpickle==2.2.1", # From your requirements.txt
     "pytest-xdist>=3.6.1",
     "pytest-cov>=6.0.0",
     "pytest-instafail>=0.5.0",
@@ -21,6 +21,8 @@ dependencies = [
     "sentence-transformers>=4.1.0",
     "megaparse>=0.0.45",
     "pretty-errors>=1.2.25",
+    "docling>=2.37.0",
+    "langchain-text-splitters>=0.3.8",
 ]
 
 
