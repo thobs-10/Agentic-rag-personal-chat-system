@@ -2,128 +2,112 @@ import os
 from typing import Any, Dict, List
 
 import numpy as np
-from docx import Document
-from PyPDF2 import PdfReader
-from qdrant_client import QdrantClient
+from config import QdrantDBConfig
+from docling.backend.docling_parse_v4_backend import DoclingParseV4DocumentBackend
+from docling.datamodel.base_models import InputFormat
+from docling.datamodel.pipeline_options import PdfPipelineOptions
+from docling.document_converter import DocumentConverter, PdfFormatOption
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from loguru import logger
 from qdrant_client.http import models
-from qdrant_client.http.models import Distance, VectorParams
+from qdrant_db_client import QdrantDBClient
 from sentence_transformers import SentenceTransformer
 
 
 class DocumentIngestor:
-    def __init__(self) -> None:
+    """
+    Handles the ingestion process of documents:
+    1. Reads document content using Docling.
+    2. Chunks the content.
+    3. Generates embeddings for the chunks.
+    4. Inserts embeddings and metadata into Qdrant via a QdrantKnowledgeBaseClient.
+    """
+
+    def __init__(self, db_client: QdrantDBClient, docling_backend=None) -> None:
+        self.qdrant_db_client = db_client
         self.encoding_model = SentenceTransformer("all-MiniLM-L6-v2")
-        self.qdrant_client = QdrantClient(
-            url=os.getenv("QDRANT_URL"),
-            port=4443,
-            prefer_grpc=True,
+        self.batch_size = QdrantDBConfig().batch_size
+        self.text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=500,  # Optimal size for your embedding model and LLM context window
+            chunk_overlap=100,  # To maintain context across sub-chunks
+            separators=["\n\n", "\n", ". ", " ", ""],
+            length_function=len,
+            is_separator_regex=False,
         )
-        self.supported_file_extensions = {
-            ".txt": self._ingest_txt,
-            ".pdf": self._ingest_pdf,
-            ".docx": self._ingest_docx,
-        }
-        self.batch_size = 32  # batch size for embedding generation
+        # Configure Docling's DocumentConverter for PDF batch processing
+        pdf_pipeline_options = PdfPipelineOptions()
+        # Set to False to avoid generating image files if not needed, improving performance
+        pdf_pipeline_options.generate_page_images = False
+        self.docling_converter = DocumentConverter(
+            format_options={
+                InputFormat.PDF: PdfFormatOption(
+                    pipeline_options=pdf_pipeline_options,
+                    backend=docling_backend
+                    or DoclingParseV4DocumentBackend,  # Use the specified backend
+                )
+            }
+        )
 
-    def _ingest_txt(self, file_path: str) -> List[Dict[str, Any]]:
-        """
-        This function reads the content of the file and chunks it into smaller pieces.
-
-        Args:
-            file_path (str): Path to the file to be ingested.
-
-        Returns:
-            List[Dict[str, Any]]: A list of dictionaries containing the chunked content and metadata.
-        """
-        with open(file_path, "r", encoding="utf-8") as file:
-            content = file.read()
-        return self._chunk_document(content, file_path)
-
-    def _ingest_pdf(self, file_path: str) -> List[Dict[str, Any]]:
-        """
-        This function reads the content of the PDF file and chunks it into smaller pieces.
-
-        Args:
-            file_path (str): Path to the file to be ingested.
-
-        Returns:
-            List[Dict[str, Any]]: A list of dictionaries containing the chunked content and metadata.
-        """
-        if not file_path.lower().endswith(".pdf"):
-            raise ValueError(f"Unsupported file type for PDF ingestion: {file_path}")
-        # use a pdf library to read the PDF content
-        reader = PdfReader(file_path)
-        content = ""
-        for page in reader.pages:
-            content += page.extract_text() + "\n"
-        if not content.strip():
-            raise ValueError(f"Empty content in file: {file_path}")
-        return self._chunk_document(content, file_path)
-
-    def _ingest_docx(self, file_path: str) -> List[Dict[str, Any]]:
-        """
-        This function reads the content of the DOCX file and chunks it into smaller pieces.
-
-        Args:
-            file_path (str): Path to the file to be ingested.
-
-        Returns:
-            List[Dict[str, Any]]: A list of dictionaries containing the chunked content and metadata.
-        """
-        if not file_path.lower().endswith(".docx"):
-            raise ValueError(f"Unsupported file type for DOCX ingestion: {file_path}")
-
-        doc = Document(file_path)
-        content = ""
-        for para in doc.paragraphs:
-            content += para.text + "\n"
-        if not content.strip():
-            raise ValueError(f"Empty content in file: {file_path}")
-        return self._chunk_document(content, file_path)
-
-    def _chunk_document(self, content: str, source: str) -> List[Dict[str, Any]]:
-        """
-        This function chunks the document content into smaller pieces.
-
-        Args:
-            content (str): The content of the document.
-            file_path (str): Path to the file to be ingested.
-
-        Returns:
-            List[Dict[str, Any]]: A list of dictionaries containing the chunked content and metadata.
-        """
-        chunks: List[Dict[str, Any]] = []
-        if not content.strip():
-            raise ValueError(f"Empty content in file: {source}")
-
-        paragraphs = [p for p in content.split("\n") if p.strip()]
-        current_chunk = ""
-        for paragraph in paragraphs:
-            if len(current_chunk) + len(paragraph) > 1000:  # target chunk size
-                current_chunk += "\n\n" + paragraph if current_chunk else paragraph
-            else:
-                if current_chunk:
-                    chunks.append(
+    def _extract_text_with_docling(
+        self,
+        docling_doc: Any,
+        file_path: str,
+    ) -> List[Dict[str, Any]]:
+        pages_data: List[Dict[str, Any]] = []
+        try:
+            for page_num, page in enumerate(docling_doc.pages, start=1):
+                page_content = page.text()
+                if page_content.strip():
+                    pages_data.append(
                         {
-                            "text": current_chunk,
+                            "content": page_content,
                             "metadata": {
-                                "source": source,
-                                "chunk": len(chunks) + 1,
+                                "source": file_path,
+                                "page_number": page_num,
                             },
                         }
                     )
-                current_chunk = paragraph
-        if current_chunk:
-            chunks.append(
-                {
-                    "text": current_chunk,
-                    "metadata": {
-                        "source": source,
-                        "chunk": len(chunks) + 1,
-                    },
-                }
+                else:
+                    logger.warning(f"Page {page_num} of {file_path} extracted as empty by Docling.")
+
+            if not pages_data:
+                logger.warning(f"Docling extracted no content from any page in file: {file_path}")
+
+            logger.info(f"Extracted {len(pages_data)} pages from {file_path}.")
+            return pages_data
+
+        except Exception as e:
+            logger.error(
+                f"Error extracting page-by-page text from DoclingDocument for {file_path}: {e}"
             )
-        return chunks
+            return []
+
+    def _chunk_document_multi_stage(self, pages_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        final_chunks: List[Dict[str, Any]] = []
+        global_chunk_id = 0
+        for page_data in pages_data:
+            page_content = page_data["content"]
+            page_metadata = page_data["metadata"]
+
+            texts_on_page = self.text_splitter.split_text(page_content)
+            for i, text_chunk in enumerate(texts_on_page):
+                if text_chunk.strip():
+                    global_chunk_id += 1
+                    chunk_metadata = page_metadata.copy()
+                    chunk_metadata.update(
+                        {
+                            "chunk_id_on_page": i + 1,
+                            "global_chunk_id": global_chunk_id,
+                        }
+                    )
+                    final_chunks.append(
+                        {
+                            "text": text_chunk.strip(),
+                            "metadata": chunk_metadata,
+                        }
+                    )
+
+        return final_chunks
 
     def _generate_embeddings(self, texts: List[str]) -> np.ndarray:
         """
@@ -135,79 +119,150 @@ class DocumentIngestor:
         Returns:
             np.ndarray: A numpy array of embeddings where each row corresponds to a text.
         """
-        return self.encoding_model.encode(
-            sentences=texts, show_progress_bar=True, batch_size=self.batch_size
+        embeddings = self.encoding_model.encode(
+            sentences=texts, show_progress_bar=False, batch_size=self.batch_size
         )
+        return embeddings
 
-    def _create_collection(self, collection_name: str) -> None:
+    def _create_collection(self, collection_name: str, vector_size: Any) -> None:
         """
         This function creates a collection in Qdrant.
 
         Args:
             collection_name (str): The name of the collection to be created.
         """
-        self.qdrant_client.recreate_collection(
-            collection_name=collection_name,
-            vectors_config={
-                "vector_params": VectorParams(
-                    size=384,
-                    distance=Distance.COSINE,
-                ),
-            },
+        try:
+            vector_size = self.encoding_model.get_sentence_embedding_dimension()
+            self.qdrant_db_client.create_db_collection(collection_name, vector_size)
+        except Exception as e:
+            raise e
+
+    def ingest(self, file_path: str, collection_name: str) -> None:
+        docling_input_paths = [os.path.abspath(f) for f in file_path]
+
+        logger.info("Converting documents with Docling...")
+        conv_results = self.docling_converter.convert_all(
+            docling_input_paths,
+            raises_on_error=False,  # Continue even if some documents fail
         )
+        logger.info("Docling batch conversion complete.")
 
-    def _insert_documents(self, collection_name: str, documents: List[Dict[str, Any]]) -> None:
-        """
-        This function inserts documents into the Qdrant collection.
+        all_points_for_qdrant: List[models.PointStruct] = []
+        total_chunks_ingested = 0
 
-        Args:
-            collection_name (str): The name of the collection to insert documents into.
-            documents (List[Dict[str, Any]]): A list of dictionaries containing the documents to be inserted.
-        """
-        texts = [doc["text"] for doc in documents]
-        embeddings = self._generate_embeddings(texts)
-        points = [
-            models.PointStruct(
-                id=i,
-                vector=embedding.tolist(),
-                payload=doc["metadata"],
+        # Define vector size once for the collection
+        vector_size = self.encoding_model.get_sentence_embedding_dimension()
+        if not collection_name:
+            raise ValueError("The passed in collection name is not valid")
+        self._create_collection(collection_name, vector_size)
+
+        for result in conv_results:
+            if not result.document.export_to_text().strip():
+                logger.error("Docling conversion failed ")
+                continue
+
+            # Ensure a DoclingDocument object is present
+            if not result.document:
+                logger.warning(
+                    f"Docling conversion succeeded but no document object found for {file_path}."
+                )
+                continue
+
+            logger.info(f"Processing document: {file_path}")
+            try:
+                # 1.5. Extract pages from the DoclingDocument object
+                pages_data = self._extract_text_with_docling(result.document, file_path)
+
+                if not pages_data:
+                    logger.info(f"No pages extracted or valid from {file_path}. Skipping.")
+                    continue
+
+                # 2. Text-Level Chunking (Recursive Character Splitter on each page)
+                final_chunks = self._chunk_document_multi_stage(pages_data)
+
+                if not final_chunks:
+                    logger.info(
+                        f"No chunks generated from {file_path}. Skipping embedding and insertion."
+                    )
+                    continue
+
+                # 3. Embeddings
+                texts_to_embed = [chunk["text"] for chunk in final_chunks]
+                embeddings = self._generate_embeddings(texts_to_embed)
+                # Prepare points for insertion
+                # Note: We need to adjust IDs for batch insertion or ensure uniqueness across all docs.
+                # A simple approach is to manage a global ID counter within this batch ingestion.
+                # For now, let's append to a single list of points and upsert all at once.
+                # Qdrant IDs should be globally unique within a collection.
+                # Using the `global_chunk_id` generated in `_chunk_document_multi_stage` is good.
+
+                points_for_current_doc = [
+                    models.PointStruct(
+                        id=chunk["metadata"]["global_chunk_id"],  # Unique ID from chunking
+                        vector=embedding.tolist(),
+                        payload=chunk["metadata"],
+                    )
+                    for embedding, chunk in zip(embeddings, final_chunks, strict=True)
+                ]
+                all_points_for_qdrant.extend(points_for_current_doc)
+                total_chunks_ingested += len(points_for_current_doc)
+
+            except Exception as e:
+                logger.error(
+                    f"Error during processing of {file_path} after Docling conversion: {e}",
+                    exc_info=True,
+                )
+
+        if all_points_for_qdrant:
+            logger.info(
+                f"Inserting a total of {len(all_points_for_qdrant)} chunks into Qdrant for this batch."
             )
-            for i, (embedding, doc) in enumerate(zip(embeddings, documents, strict=True))
-        ]
-
-        self.qdrant_client.upsert(
-            collection_name=collection_name,
-            points=points,
-        )
-
-    def ingest(self, file_path: str) -> None:
-        """
-        This function ingests a document from the given file path.
-        Args:
-            file_path (str): Path to the file to be ingested.
-        """
-        file_extension = os.path.splitext(file_path)[1].lower()
-        if file_extension not in self.supported_file_extensions:
-            raise ValueError(f"Unsupported file type: {file_extension}")
-
-        documents = self.supported_file_extensions[file_extension](file_path)
-        collection_name = "documents"
-
-        if not self.qdrant_client.get_collection(collection_name):
-            self._create_collection(collection_name)
-
-        self._insert_documents(collection_name, documents)
-        print(f"Ingested {len(documents)} chunks from {file_path} into Qdrant.")
+            self.qdrant_db_client.insert_embbedings(
+                collection_name, embeddings, all_points_for_qdrant
+            )
+            logger.info(
+                f"Batch ingestion completed. Total chunks processed: {total_chunks_ingested}"
+            )
+        else:
+            logger.info(
+                "No documents were successfully processed or generated chunks in this batch."
+            )
 
 
 if __name__ == "__main__":
-    # paths to the data files to be ingested
-    file_path: str = "data/documents/"
-    ingestor = DocumentIngestor()
-    for file_name in os.listdir(file_path):
-        full_path = os.path.join(file_path, file_name)
-        if os.path.isfile(full_path):
-            try:
-                ingestor.ingest(full_path)
-            except Exception as e:
-                print(f"Failed to ingest {full_path}: {e}")
+    # Ensure QDRANT_URL environment variable is set
+    # Example: os.environ["QDRANT_URL"] = "http://localhost"
+    if not os.getenv("QDRANT_URL"):
+        logger.error("Please set the QDRANT_URL environment variable.")
+        exit(1)
+
+    data_directory = "data/documents"  # Make sure this directory exists and contains PDF files
+
+    if not os.path.exists(data_directory):
+        os.makedirs(data_directory)
+        logger.info(
+            f"Created directory: {data_directory}. Please add some PDF books here to ingest."
+        )
+        exit(0)
+
+    # Instantiate the Qdrant client manager
+    qdrant_client_instance = QdrantDBClient()
+
+    # Instantiate the DocumentIngestor, passing the Qdrant client instance
+    ingestor = DocumentIngestor(qdrant_client_instance, DoclingParseV4DocumentBackend)
+
+    # Collect all PDF file paths for batch processing
+    pdf_file_paths = List[str]
+    for file_name in os.listdir(data_directory):
+        full_path = os.path.join(data_directory, file_name)
+        if os.path.isfile(full_path) and full_path.lower().endswith(".pdf"):
+            pdf_file_paths.append(full_path)
+        else:
+            logger.info(f"Skipping non-PDF file or directory: {full_path}")
+
+    if not pdf_file_paths:
+        logger.warning(f"No PDF files found in {data_directory}. Nothing to ingest.")
+        exit(0)
+
+    # Perform batch ingestion
+    ingestor.ingest(pdf_file_paths, "Data-science")
