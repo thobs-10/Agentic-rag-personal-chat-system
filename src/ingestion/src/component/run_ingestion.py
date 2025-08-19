@@ -53,6 +53,20 @@ class DocumentIngestor:
         docling_doc: Any,
         file_path: str,
     ) -> List[Dict[str, Any]]:
+        """Extracts text content from a Docling document object page by page.
+
+        Args:
+            docling_doc: Parsed document object from Docling
+            file_path: Source file path for metadata tracking
+
+        Returns:
+            List of dictionaries containing:
+                - content: Extracted text from page
+                - metadata: Source file and page number info
+
+        Note:
+            Returns empty list if extraction fails or document contains no valid text
+        """
         pages_data: List[Dict[str, Any]] = []
         try:
             for page_num, page in enumerate(docling_doc.pages, start=1):
@@ -83,6 +97,19 @@ class DocumentIngestor:
             return []
 
     def _chunk_document_multi_stage(self, pages_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Splits document pages into smaller text chunks using recursive splitting.
+
+        Args:
+            pages_data: List of page data dictionaries from _extract_text_with_docling
+
+        Returns:
+            List of dictionaries containing:
+                - text: The text chunk content
+                - metadata: Original metadata plus chunk position information
+
+        Note:
+            Maintains global chunk IDs across entire document for consistent referencing
+        """
         final_chunks: List[Dict[str, Any]] = []
         global_chunk_id = 0
         for page_data in pages_data:
@@ -110,14 +137,16 @@ class DocumentIngestor:
         return final_chunks
 
     def _generate_embeddings(self, texts: List[str]) -> np.ndarray:
-        """
-        This function generates embeddings for the given texts.
+        """Generates vector embeddings for a list of text chunks.
 
         Args:
-            texts (List[str]): A list of texts to generate embeddings for.
+            texts: List of text strings to embed
 
         Returns:
-            np.ndarray: A numpy array of embeddings where each row corresponds to a text.
+            Numpy array of embeddings where each row corresponds to input texts
+
+        Note:
+            Uses batch processing for efficiency based on configured batch_size
         """
         embeddings = self.encoding_model.encode(
             sentences=texts, show_progress_bar=False, batch_size=self.batch_size
@@ -125,11 +154,14 @@ class DocumentIngestor:
         return embeddings
 
     def _create_collection(self, collection_name: str, vector_size: Any) -> None:
-        """
-        This function creates a collection in Qdrant.
+        """Creates a new Qdrant collection with specified parameters.
 
         Args:
-            collection_name (str): The name of the collection to be created.
+            collection_name: Name of the collection to create
+            vector_size: Dimensionality of vectors to be stored
+
+        Raises:
+            Exception: If collection creation fails
         """
         try:
             vector_size = self.encoding_model.get_sentence_embedding_dimension()
@@ -137,96 +169,93 @@ class DocumentIngestor:
         except Exception as e:
             raise e
 
-    def ingest(self, file_path: str, collection_name: str) -> None:
-        docling_input_paths = [os.path.abspath(f) for f in file_path]
-
-        logger.info("Converting documents with Docling...")
-        conv_results = self.docling_converter.convert_all(
-            docling_input_paths,
-            raises_on_error=False,  # Continue even if some documents fail
+    def convert_documents(self, file_paths: List[str]) -> List[Any]:
+        """Step 1: Converts input files to Docling documents."""
+        docling_input_paths = [os.path.abspath(f) for f in file_paths]
+        # Ensure we return a list, not an iterator
+        return list(
+            self.docling_converter.convert_all(
+                docling_input_paths,
+                raises_on_error=False,
+            )
         )
-        logger.info("Docling batch conversion complete.")
 
-        all_points_for_qdrant: List[models.PointStruct] = []
-        total_chunks_ingested = 0
-
-        # Define vector size once for the collection
-        vector_size = self.encoding_model.get_sentence_embedding_dimension()
-        if not collection_name:
-            raise ValueError("The passed in collection name is not valid")
-        self._create_collection(collection_name, vector_size)
-
-        for result in conv_results:
-            if not result.document.export_to_text().strip():
-                logger.error("Docling conversion failed ")
-                continue
-
-            # Ensure a DoclingDocument object is present
-            if not result.document:
+    def extract_text(
+        self, docling_results: List[Any], file_paths: List[str]
+    ) -> List[List[Dict[str, Any]]]:
+        """Step 2: Extracts text content page by page from Docling documents."""
+        extracted = []
+        for result, file_path in zip(docling_results, file_paths, strict=True):
+            if hasattr(result, "document") and result.document:
+                pages = self._extract_text_with_docling(result.document, file_path)
+                extracted.append(pages)
+            else:
                 logger.warning(
                     f"Docling conversion succeeded but no document object found for {file_path}."
                 )
-                continue
+                extracted.append([])
+        return extracted
 
-            logger.info(f"Processing document: {file_path}")
-            try:
-                # 1.5. Extract pages from the DoclingDocument object
-                pages_data = self._extract_text_with_docling(result.document, file_path)
+    def chunk_text(self, pages_data: List[List[Dict[str, Any]]]) -> List[List[Dict[str, Any]]]:
+        """Step 3: Splits extracted text into chunks."""
+        return [self._chunk_document_multi_stage(pages) for pages in pages_data]
 
-                if not pages_data:
-                    logger.info(f"No pages extracted or valid from {file_path}. Skipping.")
-                    continue
+    def generate_embeddings(self, all_chunks: List[List[Dict[str, Any]]]) -> List[np.ndarray]:
+        """Step 4: Generates vector embeddings for each chunk."""
+        return [
+            self._generate_embeddings([chunk["text"] for chunk in chunks]) for chunks in all_chunks
+        ]
 
-                # 2. Text-Level Chunking (Recursive Character Splitter on each page)
-                final_chunks = self._chunk_document_multi_stage(pages_data)
-
-                if not final_chunks:
-                    logger.info(
-                        f"No chunks generated from {file_path}. Skipping embedding and insertion."
-                    )
-                    continue
-
-                # 3. Embeddings
-                texts_to_embed = [chunk["text"] for chunk in final_chunks]
-                embeddings = self._generate_embeddings(texts_to_embed)
-                # Prepare points for insertion
-                # Note: We need to adjust IDs for batch insertion or ensure uniqueness across all docs.
-                # A simple approach is to manage a global ID counter within this batch ingestion.
-                # For now, let's append to a single list of points and upsert all at once.
-                # Qdrant IDs should be globally unique within a collection.
-                # Using the `global_chunk_id` generated in `_chunk_document_multi_stage` is good.
-
-                points_for_current_doc = [
+    def prepare_qdrant_points(
+        self, all_chunks: List[List[Dict[str, Any]]], all_embeddings: List[np.ndarray]
+    ) -> List[models.PointStruct]:
+        """Step 5: Prepares data points for Qdrant insertion."""
+        points = []
+        for chunks, embeddings in zip(all_chunks, all_embeddings, strict=True):
+            points.extend(
+                [
                     models.PointStruct(
-                        id=chunk["metadata"]["global_chunk_id"],  # Unique ID from chunking
+                        id=chunk["metadata"]["global_chunk_id"],
                         vector=embedding.tolist(),
                         payload=chunk["metadata"],
                     )
-                    for embedding, chunk in zip(embeddings, final_chunks, strict=True)
+                    for embedding, chunk in zip(embeddings, chunks, strict=True)
                 ]
-                all_points_for_qdrant.extend(points_for_current_doc)
-                total_chunks_ingested += len(points_for_current_doc)
-
-            except Exception as e:
-                logger.error(
-                    f"Error during processing of {file_path} after Docling conversion: {e}",
-                    exc_info=True,
-                )
-
-        if all_points_for_qdrant:
-            logger.info(
-                f"Inserting a total of {len(all_points_for_qdrant)} chunks into Qdrant for this batch."
             )
-            self.qdrant_db_client.insert_embbedings(
-                collection_name, embeddings, all_points_for_qdrant
-            )
+        return points
+
+    def insert_into_qdrant(self, collection_name: str, points: List[models.PointStruct]) -> None:
+        """Step 6: Inserts points into Qdrant collection."""
+        if points:
+            # Extract vectors and convert to numpy array for compatibility
+            import numpy as np
+
+            vectors = np.array([p.vector for p in points])
+            self.qdrant_db_client.insert_embbedings(collection_name, vectors, points)
             logger.info(
-                f"Batch ingestion completed. Total chunks processed: {total_chunks_ingested}"
+                f"Inserted {len(points)} chunks into Qdrant collection '{collection_name}'."
             )
         else:
-            logger.info(
-                "No documents were successfully processed or generated chunks in this batch."
-            )
+            logger.info("No points to insert into Qdrant.")
+
+    def create_collection(self, collection_name: str) -> None:
+        """Creates Qdrant collection if not exists."""
+        if not collection_name:
+            raise ValueError("The passed in collection name is not valid")
+        vector_size = self.encoding_model.get_sentence_embedding_dimension()
+        self._create_collection(collection_name, vector_size)
+
+    def run_ingestion_pipeline(self, file_paths: List[str], collection_name: str) -> None:
+        """Orchestrates the modular ingestion pipeline steps."""
+        logger.info("Starting ingestion pipeline...")
+        self.create_collection(collection_name)
+        docling_results = self.convert_documents(file_paths)
+        pages_data = self.extract_text(docling_results, file_paths)
+        all_chunks = self.chunk_text(pages_data)
+        all_embeddings = self.generate_embeddings(all_chunks)
+        points = self.prepare_qdrant_points(all_chunks, all_embeddings)
+        self.insert_into_qdrant(collection_name, points)
+        logger.info("Ingestion pipeline completed.")
 
 
 if __name__ == "__main__":
@@ -252,7 +281,7 @@ if __name__ == "__main__":
     ingestor = DocumentIngestor(qdrant_client_instance, DoclingParseV4DocumentBackend)
 
     # Collect all PDF file paths for batch processing
-    pdf_file_paths = List[str]
+    pdf_file_paths: List[str] = []
     for file_name in os.listdir(data_directory):
         full_path = os.path.join(data_directory, file_name)
         if os.path.isfile(full_path) and full_path.lower().endswith(".pdf"):
@@ -264,5 +293,5 @@ if __name__ == "__main__":
         logger.warning(f"No PDF files found in {data_directory}. Nothing to ingest.")
         exit(0)
 
-    # Perform batch ingestion
-    ingestor.ingest(pdf_file_paths, "Data-science")
+    # Run modular ingestion pipeline
+    ingestor.run_ingestion_pipeline(pdf_file_paths, "Data-science")
