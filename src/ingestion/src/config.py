@@ -14,3 +14,14 @@ class QdrantDBConfig(BaseModel):
     port: int = 8080
     url: str = "localhost"
     batch_size = 32
+
+
+@dataclass
+class TextSplitter(BaseModel):
+    chunk_size: int = 500  # Optimal size for your embedding model and LLM context window
+    chunk_overlap: int = 100
+
+
+@dataclass
+class EncodingSentenceModel(BaseModel):
+    model_name: str = "all-MiniLM-L6-v2"
