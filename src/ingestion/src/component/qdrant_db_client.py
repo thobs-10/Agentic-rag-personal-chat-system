@@ -55,34 +55,60 @@ class QdrantDBClient:
             logger.exception(f"Failed to create collection {collection_name}: {e}")
             raise
 
-    def insert_embbedings(
+    def insert_embeddings(
         self,
         collection_name: str,
-        embeddings: np.ndarray[Any, Any],
-        points: List[PointStruct],
+        embeddings: List[np.ndarray],
+        metadata: Optional[List[Dict[str, Any]]] = None,
         wait: bool = True,
     ) -> None:
         """Inserts embeddings into the specified Qdrant collection.
 
         Args:
             collection_name: Name of target collection
-            embeddings: Numpy array of embeddings (unused in current implementation)
-            points: Pre-formed list of PointStruct objects containing vectors and metadata
+            embeddings: List of embeddings to insert
+            metadata: Optional list of metadata dictionaries for each embedding
             wait: If True, waits for operation completion before returning
-
-        Note:
-            The 'embeddings' parameter is currently not used in the method implementation.
-            The method name contains a typo ('embbedings' instead of 'embeddings').
         """
-        # points = self._get_vector_points(embeddings)
-        self.qdrant_client.upsert(
-            collection_name=collection_name,
-            points=points,
-            wait=wait,
-        )
-        logger.info("Embeddings are successfully inserted into the vectorDB.")
+        if not collection_name:
+            raise ValueError("Collection name cannot be empty")
 
-    def get_collection(self, collection_name: str):
+        try:
+            # Convert embeddings to points
+            points = []
+            for idx, embedding in enumerate(embeddings):
+                if not isinstance(embedding, (np.ndarray, list)):
+                    raise ValueError(f"Invalid embedding type at index {idx}: {type(embedding)}")
+
+                # Convert numpy array to list if needed
+                vector = embedding.tolist() if isinstance(embedding, np.ndarray) else embedding
+
+                point_metadata = metadata[idx] if metadata and idx < len(metadata) else {}
+
+                # Create point with metadata
+                points.append(
+                    models.Record(
+                        id=str(uuid4()),  # Use UUID for unique IDs
+                        vector=vector,
+                        payload=point_metadata,
+                    )
+                )
+
+            # Upload in batches
+            batch_size = 100
+            for i in range(0, len(points), batch_size):
+                batch = points[i : i + batch_size]
+                self.qdrant_client.upload_records(
+                    collection_name=collection_name, records=batch, wait=wait
+                )
+                logger.debug(f"Uploaded batch of {len(batch)} points")
+
+            logger.info(f"Successfully inserted {len(points)} embeddings into {collection_name}")
+        except Exception as e:
+            logger.exception(f"Failed to insert embeddings into collection {collection_name}: {e}")
+            raise
+
+    def get_collection(self, collection_name: str) -> models.CollectionInfo | None:
         """Retrieves information about a Qdrant collection.
 
         Args:
