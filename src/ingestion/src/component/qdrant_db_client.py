@@ -35,33 +35,25 @@ class QdrantDBClient:
             ValueError: If collection_name is empty
         """
         if not collection_name:
-            raise ValueError("Collection name is not present")
-        # vector_size = QdrantDBConfig().vector_size
-        vector_distance = QdrantDBConfig().vector_distance
-        self.qdrant_client.recreate_collection(
-            collection_name=collection_name,
-            vectors_config={
-                "vector_params": VectorParams(
-                    size=vector_size,
-                    distance=vector_distance,
+            raise ValueError("Collection name cannot be empty")
+
+        try:
+            # Delete if exists and create new
+            try:
+                self.qdrant_client.delete_collection(collection_name=collection_name)
+            except Exception:
+                pass  # Ignore if collection doesn't exist
+
+            self.qdrant_client.create_collection(
+                collection_name=collection_name,
+                vectors_config=models.VectorParams(
+                    size=vector_size, distance=models.Distance.COSINE
                 ),
-            },
-        )
-        logger.info(f"Collection: {collection_name} is created.")
-
-    def _get_vector_points(self, embeddings: np.ndarray):
-        """Converts numpy embeddings to Qdrant PointStruct format.
-
-        Args:
-            embeddings: Numpy array of embeddings to convert
-
-        Returns:
-            List of PointStruct objects ready for Qdrant insertion
-        """
-        return [
-            models.PointStruct(id=int(idx), vector=embedding.tolist())
-            for idx, embedding in enumerate(embeddings)
-        ]
+            )
+            logger.info(f"Successfully created collection: {collection_name}")
+        except Exception as e:
+            logger.exception(f"Failed to create collection {collection_name}: {e}")
+            raise
 
     def insert_embbedings(
         self,
