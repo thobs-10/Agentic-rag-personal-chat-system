@@ -23,16 +23,16 @@ class QdrantDBClient:
     def create_db_collection(
         self,
         collection_name: str,
-        vector_size: Any,
+        vector_size: int = 384,  # Default size for all-MiniLM-L6-v2
     ) -> None:
-        """Creates or recreates a collection in Qdrant with specified parameters.
+        """Creates a new collection in Qdrant.
 
         Args:
             collection_name: Name of the collection to create
-            vector_size: Dimensionality of the vectors to be stored
+            vector_size: Dimensionality of the vectors (default: 384 for all-MiniLM-L6-v2)
 
         Raises:
-            ValueError: If collection_name is empty or None
+            ValueError: If collection_name is empty
         """
         if not collection_name:
             raise ValueError("Collection name is not present")
