@@ -1,10 +1,11 @@
-from typing import Any, List
+from typing import Any, Dict, List, Optional
+from uuid import uuid4
 
 import numpy as np
-from config import QdrantDBConfig
 from loguru import logger
 from qdrant_client import QdrantClient, models
-from qdrant_client.models import PointStruct, VectorParams
+
+from src.ingestion.src.config import QdrantDBConfig
 
 
 class QdrantDBClient:
