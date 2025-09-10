@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "agentic-rag-personal-chat-system"
 version = "0.1.0"
@@ -8,14 +12,13 @@ dependencies = [
     "zenml>=0.75.0",
     "pytest>=8.3.4",
     "pytest-mock>=3.14.0",
-    "cloudpickle==2.2.1", # From your requirements.txt
+    "cloudpickle==2.2.1",              # From your requirements.txt
     "pytest-xdist>=3.6.1",
     "pytest-cov>=6.0.0",
     "pytest-instafail>=0.5.0",
     "pytest-randomly>=3.16.0",
     "pre_commit>=4.2.0",
     "loguru>=0.7.3",
-    "pydantic>=2.8.2",
     "setuptools-scm>=8.2.0",
     "qdrant-client>=1.14.2",
     "sentence-transformers>=4.1.0",
@@ -23,8 +26,15 @@ dependencies = [
     "pretty-errors>=1.2.25",
     "docling>=2.37.0",
     "langchain-text-splitters>=0.3.8",
+    "pydantic>=2.11.1",
 ]
 
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
+
+[tool.setuptools.package-dir]
+"" = "."
 
 [project.optional-dependencies]
 dev = ["ruff==0.4.4", "setuptools_scm>=8.2.0"]
@@ -48,3 +58,5 @@ skips = ["B101"]
 [tool.mypy]
 strict = true
 ignore_missing_imports = true
+disable_error_code = "misc"
+# plugins = ["pydantic.mypy"]
