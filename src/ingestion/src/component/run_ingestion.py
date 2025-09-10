@@ -1,20 +1,22 @@
 """Document ingestion pipeline for processing PDFs and storing embeddings in Qdrant."""
 
 import os
-from typing import Any, Dict, List
+import sys
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
-from config import QdrantDBConfig
 from docling.backend.docling_parse_v4_backend import DoclingParseV4DocumentBackend
 from docling.datamodel.base_models import InputFormat
 from docling.datamodel.pipeline_options import PdfPipelineOptions
 from docling.document_converter import DocumentConverter, PdfFormatOption
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from loguru import logger
-from qdrant_client.http import models
-from qdrant_db_client import QdrantDBClient
 from sentence_transformers import SentenceTransformer
 
+from src.ingestion.src.component.qdrant_db_client import QdrantDBClient
+from src.ingestion.src.config import QdrantDBConfig
+from zenml.pipelines import pipeline
+from zenml.steps import step
 
 class DocumentIngestor:
     """
