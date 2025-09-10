@@ -10,11 +10,15 @@ from src.ingestion.src.config import QdrantDBConfig
 
 class QdrantDBClient:
     def __init__(self) -> None:
-        self.qdrant_client = QdrantClient(
-            url=QdrantDBConfig().url,
-            port=QdrantDBConfig().port,
-        )
-        logger.info("Client is created successfully.")
+        try:
+            self.qdrant_client = QdrantClient(
+                url=QdrantDBConfig().url,
+                port=QdrantDBConfig().port,
+            )
+            logger.info("Qdrant client created successfully")
+        except Exception as e:
+            logger.exception(f"Failed to connect to Qdrant: {e}")
+            raise
 
     def create_db_collection(
         self,
