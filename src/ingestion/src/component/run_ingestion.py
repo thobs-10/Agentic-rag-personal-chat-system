@@ -18,13 +18,45 @@ from src.ingestion.src.config import QdrantDBConfig
 from zenml.pipelines import pipeline
 from zenml.steps import step
 
-class DocumentIngestor:
+
+def _extract_text_from_attribute(page: Any, attr_name: str) -> Optional[str]:
+    """Extract text using a specific attribute method.
+
+    Args:
+        page: Document page object
+        attr_name: Name of the attribute to try
+
+    Returns:
+        Extracted text if successful, None otherwise
     """
-    Handles the ingestion process of documents:
-    1. Reads document content using Docling.
-    2. Chunks the content.
-    3. Generates embeddings for the chunks.
-    4. Inserts embeddings and metadata into Qdrant via a QdrantKnowledgeBaseClient.
+    if not hasattr(page, attr_name):
+        return None
+
+    try:
+        attr = getattr(page, attr_name)
+        result = attr() if callable(attr) else attr
+
+        if isinstance(result, str):
+            text = result.strip()
+            return text if text and not text.startswith("<") else None
+        elif isinstance(result, (list, tuple)):
+            text = "\n".join(str(item) for item in result if item)
+            return text.strip() if text else None
+        elif result is not None:
+            return str(result).strip()
+    except Exception as e:
+        logger.debug(f"Attribute {attr_name} extraction failed: {str(e)}")
+    return None
+
+
+def extract_page_text(page: Any) -> Optional[str]:
+    """Try different methods to extract text from a page.
+
+    Args:
+        page: Document page object
+
+    Returns:
+        Extracted text if successful, None otherwise
     """
 
     def __init__(self, db_client: QdrantDBClient, docling_backend=None) -> None:
