@@ -1,3 +1,5 @@
+"""Document ingestion pipeline for processing PDFs and storing embeddings in Qdrant."""
+
 import os
 from typing import Any, Dict, List
 
