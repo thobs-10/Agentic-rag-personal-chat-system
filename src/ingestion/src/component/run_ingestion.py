@@ -268,13 +268,19 @@ def generate_embeddings(
             show_progress_bar=False,
             batch_size=batch_size,
         )
-        exit(0)
+        embeddings.append(chunk_embeddings)
 
-    # Instantiate the Qdrant client manager
-    qdrant_client_instance = QdrantDBClient()
+        # Extract metadata for each chunk
+        chunk_metadata = [
+            {
+                **chunk["metadata"],
+                "text": chunk["text"],  # Include the text in metadata
+            }
+            for chunk in chunks
+        ]
+        metadata.append(chunk_metadata)
 
-    # Instantiate the DocumentIngestor, passing the Qdrant client instance
-    ingestor = DocumentIngestor(qdrant_client_instance, DoclingParseV4DocumentBackend)
+    return embeddings, metadata
 
     # Collect all PDF file paths for batch processing
     pdf_file_paths: List[str] = []
