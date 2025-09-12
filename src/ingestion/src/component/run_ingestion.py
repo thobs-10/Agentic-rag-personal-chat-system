@@ -87,89 +87,41 @@ def convert_documents(file_paths: List[str]) -> List[Any]:
         }
     )
 
-    def _chunk_document_multi_stage(self, pages_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Splits document pages into smaller text chunks using recursive splitting.
+    return list(converter.convert_all(docling_input_paths, raises_on_error=False))
 
-        Args:
-            pages_data: List of page data dictionaries from _extract_text_with_docling
 
-        Returns:
-            List of dictionaries containing:
-                - text: The text chunk content
-                - metadata: Original metadata plus chunk position information
+@step
+def extract_text(docling_results: List[Any], file_paths: List[str]) -> List[List[Dict[str, Any]]]:
+    """Extract text content page by page from Docling documents.
 
-        Note:
-            Maintains global chunk IDs across entire document for consistent referencing
-        """
-        final_chunks: List[Dict[str, Any]] = []
-        global_chunk_id = 0
-        for page_data in pages_data:
-            page_content = page_data["content"]
-            page_metadata = page_data["metadata"]
+    Args:
+        docling_results: List of converted Docling documents
+        file_paths: List of original file paths
 
-            texts_on_page = self.text_splitter.split_text(page_content)
-            for i, text_chunk in enumerate(texts_on_page):
-                if text_chunk.strip():
-                    global_chunk_id += 1
-                    chunk_metadata = page_metadata.copy()
-                    chunk_metadata.update(
-                        {
-                            "chunk_id_on_page": i + 1,
-                            "global_chunk_id": global_chunk_id,
-                        }
-                    )
-                    final_chunks.append(
-                        {
-                            "text": text_chunk.strip(),
-                            "metadata": chunk_metadata,
-                        }
-                    )
+    Returns:
+        List of document contents, where each document is a list of pages with text and metadata
+    """
+    extracted: List[List[Dict[str, Any]]] = []
 
-        return final_chunks
+    for result, file_path in zip(docling_results, file_paths, strict=True):
+        if not result:
+            logger.error(f"Document conversion failed for {file_path}")
+            extracted.append([])
+            continue
 
-    def _generate_embeddings(self, texts: List[str]) -> np.ndarray:
-        """Generates vector embeddings for a list of text chunks.
+        pages = _get_document_pages(result)
+        if not pages:
+            logger.error(f"No pages found in document {file_path}")
+            extracted.append([])
+            continue
 
-        Args:
-            texts: List of text strings to embed
+        pages_data = _process_document_pages(pages, file_path)
+        extracted.append(pages_data)
 
-        Returns:
-            Numpy array of embeddings where each row corresponds to input texts
+        logger.info(f"Extracted {len(pages_data)} pages from {file_path}")
 
-        Note:
-            Uses batch processing for efficiency based on configured batch_size
-        """
-        embeddings = self.encoding_model.encode(
-            sentences=texts, show_progress_bar=False, batch_size=self.batch_size
-        )
-        return embeddings
-
-    def _create_collection(self, collection_name: str, vector_size: Any) -> None:
-        """Creates a new Qdrant collection with specified parameters.
-
-        Args:
-            collection_name: Name of the collection to create
-            vector_size: Dimensionality of vectors to be stored
-
-        Raises:
-            Exception: If collection creation fails
-        """
-        try:
-            vector_size = self.encoding_model.get_sentence_embedding_dimension()
-            self.qdrant_db_client.create_db_collection(collection_name, vector_size)
-        except Exception as e:
-            raise e
-
-    def convert_documents(self, file_paths: List[str]) -> List[Any]:
-        """Step 1: Converts input files to Docling documents."""
-        docling_input_paths = [os.path.abspath(f) for f in file_paths]
-        # Ensure we return a list, not an iterator
-        return list(
-            self.docling_converter.convert_all(
-                docling_input_paths,
-                raises_on_error=False,
-            )
-        )
+    _log_extraction_summary(extracted)
+    return extracted
 
     def extract_text(
         self, docling_results: List[Any], file_paths: List[str]
