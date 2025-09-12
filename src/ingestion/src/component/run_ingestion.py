@@ -65,53 +65,27 @@ def extract_page_text(page: Any) -> Optional[str]:
             return text
     return None
 
-    def _extract_text_with_docling(
-        self,
-        docling_doc: Any,
-        file_path: str,
-    ) -> List[Dict[str, Any]]:
-        """Extracts text content from a Docling document object page by page.
 
-        Args:
-            docling_doc: Parsed document object from Docling
-            file_path: Source file path for metadata tracking
+def convert_documents(file_paths: List[str]) -> List[Any]:
+    """Convert input PDF files to Docling documents.
 
-        Returns:
-            List of dictionaries containing:
-                - content: Extracted text from page
-                - metadata: Source file and page number info
+    Args:
+        file_paths: List of PDF file paths to convert
 
-        Note:
-            Returns empty list if extraction fails or document contains no valid text
-        """
-        pages_data: List[Dict[str, Any]] = []
-        try:
-            for page_num, page in enumerate(docling_doc.pages, start=1):
-                page_content = page.text()
-                if page_content.strip():
-                    pages_data.append(
-                        {
-                            "content": page_content,
-                            "metadata": {
-                                "source": file_path,
-                                "page_number": page_num,
-                            },
-                        }
-                    )
-                else:
-                    logger.warning(f"Page {page_num} of {file_path} extracted as empty by Docling.")
+    Returns:
+        List of converted Docling documents
+    """
+    docling_input_paths = [os.path.abspath(f) for f in file_paths]
 
-            if not pages_data:
-                logger.warning(f"Docling extracted no content from any page in file: {file_path}")
-
-            logger.info(f"Extracted {len(pages_data)} pages from {file_path}.")
-            return pages_data
-
-        except Exception as e:
-            logger.error(
-                f"Error extracting page-by-page text from DoclingDocument for {file_path}: {e}"
+    pdf_options = PdfPipelineOptions(generate_page_images=False)
+    converter = DocumentConverter(
+        format_options={
+            InputFormat.PDF: PdfFormatOption(
+                pipeline_options=pdf_options,
+                backend=DoclingParseV4DocumentBackend,
             )
-            return []
+        }
+    )
 
     def _chunk_document_multi_stage(self, pages_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Splits document pages into smaller text chunks using recursive splitting.
