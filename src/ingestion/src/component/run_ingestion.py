@@ -58,31 +58,12 @@ def extract_page_text(page: Any) -> Optional[str]:
     Returns:
         Extracted text if successful, None otherwise
     """
+    logger.debug(f"Extracting text from page of type: {type(page)}")
 
-    def __init__(self, db_client: QdrantDBClient, docling_backend=None) -> None:
-        self.qdrant_db_client = db_client
-        self.encoding_model = SentenceTransformer("all-MiniLM-L6-v2")
-        self.batch_size = QdrantDBConfig().batch_size
-        self.text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=500,  # Optimal size for your embedding model and LLM context window
-            chunk_overlap=100,  # To maintain context across sub-chunks
-            separators=["\n\n", "\n", ". ", " ", ""],
-            length_function=len,
-            is_separator_regex=False,
-        )
-        # Configure Docling's DocumentConverter for PDF batch processing
-        pdf_pipeline_options = PdfPipelineOptions()
-        # Set to False to avoid generating image files if not needed, improving performance
-        pdf_pipeline_options.generate_page_images = False
-        self.docling_converter = DocumentConverter(
-            format_options={
-                InputFormat.PDF: PdfFormatOption(
-                    pipeline_options=pdf_pipeline_options,
-                    backend=docling_backend
-                    or DoclingParseV4DocumentBackend,  # Use the specified backend
-                )
-            }
-        )
+    for method_name in ["text", "export_to_text", "content", "texts", "get_text"]:
+        if text := _extract_text_from_attribute(page, method_name):
+            return text
+    return None
 
     def _extract_text_with_docling(
         self,
