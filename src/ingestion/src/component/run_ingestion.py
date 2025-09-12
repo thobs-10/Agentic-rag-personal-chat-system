@@ -249,12 +249,24 @@ def chunk_text(pages_data: List[List[Dict[str, Any]]]) -> List[List[Dict[str, An
 
     return all_chunks
 
-    data_directory = "data/documents"  # Make sure this directory exists and contains PDF files
 
-    if not os.path.exists(data_directory):
-        os.makedirs(data_directory)
-        logger.info(
-            f"Created directory: {data_directory}. Please add some PDF books here to ingest."
+# @step
+def generate_embeddings(
+    all_chunks: List[List[Dict[str, Any]]],
+) -> tuple[List[np.ndarray], List[List[Dict[str, Any]]]]:
+    """Step 4: Generates vector embeddings for each chunk."""
+    model = SentenceTransformer("all-MiniLM-L6-v2")
+    batch_size = QdrantDBConfig().batch_size
+
+    # Generate embeddings and metadata
+    embeddings = []
+    metadata = []
+
+    for chunks in all_chunks:
+        chunk_embeddings = model.encode(
+            sentences=[chunk["text"] for chunk in chunks],
+            show_progress_bar=False,
+            batch_size=batch_size,
         )
         exit(0)
 
