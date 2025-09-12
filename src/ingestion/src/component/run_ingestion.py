@@ -282,18 +282,131 @@ def generate_embeddings(
 
     return embeddings, metadata
 
-    # Collect all PDF file paths for batch processing
-    pdf_file_paths: List[str] = []
-    for file_name in os.listdir(data_directory):
-        full_path = os.path.join(data_directory, file_name)
-        if os.path.isfile(full_path) and full_path.lower().endswith(".pdf"):
-            pdf_file_paths.append(full_path)
+
+# @step
+def insert_into_qdrant(
+    collection_name: str,
+    embeddings_and_metadata: tuple[List[np.ndarray], List[List[Dict[str, Any]]]],
+) -> None:
+    """Step 6: Inserts points into Qdrant collection."""
+    embeddings, metadata = embeddings_and_metadata
+
+    if not embeddings:
+        logger.info("No points to insert into Qdrant.")
+        return
+
+    # Process each document's chunks
+    client = QdrantDBClient()
+    for doc_embeddings, doc_metadata in zip(embeddings, metadata, strict=True):
+        # Convert single document embeddings to a list
+        embeddings_list = [embedding.reshape(-1) for embedding in doc_embeddings]
+        client.insert_embeddings(
+            collection_name=collection_name, embeddings=embeddings_list, metadata=doc_metadata
+        )
+
+    total_chunks = sum(len(doc_embeddings) for doc_embeddings in embeddings)
+    logger.info(
+        f"Inserted {total_chunks} chunks from {len(embeddings)} documents into collection '{collection_name}'."
+    )
+
+
+# @step
+def create_collection(collection_name: str) -> None:
+    """Creates Qdrant collection if not exists."""
+    if not collection_name:
+        raise ValueError("Collection name cannot be empty")
+
+    # Initialize embedding model and get vector size
+    model = SentenceTransformer("all-MiniLM-L6-v2")
+    vector_size = model.get_sentence_embedding_dimension()
+    if not isinstance(vector_size, int) or vector_size <= 0:
+        raise ValueError(f"Invalid vector size: {vector_size}")
+
+    # Create collection
+    client = QdrantDBClient()
+    client.create_db_collection(collection_name=collection_name, vector_size=vector_size)
+
+
+@pipeline
+def run_ingestion_pipeline(file_paths: List[str], collection_name: str) -> None:
+    """Run the complete document ingestion pipeline.
+
+    Args:
+        file_paths: List of PDF file paths to process
+        collection_name: Name of the Qdrant collection to use
+
+    Raises:
+        Exception: If any pipeline step fails
+    """
+    logger.info("Starting document ingestion pipeline...")
+
+    try:
+        # Initialize vector storage
+        create_collection(collection_name)
+
+        # Process documents
+        docling_results = convert_documents(file_paths)
+        pages_data = extract_text(docling_results, file_paths)
+        chunks = chunk_text(pages_data)
+
+        # Generate and store embeddings
+        embeddings_and_metadata = generate_embeddings(chunks)
+        insert_into_qdrant(collection_name, embeddings_and_metadata)
+
+        logger.info("Document ingestion pipeline completed successfully")
+    except Exception as e:
+        logger.error(f"Pipeline failed: {e}", exc_info=True)
+        raise
+
+
+def _get_pdf_files(data_dir: str) -> List[str]:
+    """Get list of PDF files from directory.
+
+    Args:
+        data_dir: Directory to scan for PDF files
+
+    Returns:
+        List of absolute paths to PDF files
+
+    Raises:
+        FileNotFoundError: If data directory doesn't exist
+    """
+    if not os.path.exists(data_dir):
+        os.makedirs(data_dir)
+        logger.info(f"Created directory: {data_dir}")
+        return []
+
+    pdf_paths = []
+    for filename in os.listdir(data_dir):
+        filepath = os.path.join(data_dir, filename)
+        if os.path.isfile(filepath) and filepath.lower().endswith(".pdf"):
+            pdf_paths.append(filepath)
         else:
-            logger.info(f"Skipping non-PDF file or directory: {full_path}")
+            logger.debug(f"Skipping non-PDF file: {filepath}")
 
-    if not pdf_file_paths:
-        logger.warning(f"No PDF files found in {data_directory}. Nothing to ingest.")
-        exit(0)
+    return pdf_paths
 
-    # Run modular ingestion pipeline
-    ingestor.run_ingestion_pipeline(pdf_file_paths, "Data-science")
+
+def main() -> None:
+    """Entry point for the ingestion pipeline."""
+    # Set up environment
+    os.environ["ZENML_SERVER"] = "http://localhost:8080"
+
+    if not os.getenv("QDRANT_URL"):
+        logger.error("QDRANT_URL environment variable not set")
+        sys.exit(1)
+
+    # Scan for PDF files
+    data_dir = "data/documents"
+    pdf_paths = _get_pdf_files(data_dir)
+
+    if not pdf_paths:
+        logger.warning(f"No PDF files found in {data_dir}")
+        return
+
+    # Run pipeline
+    run_ingestion_pipeline(file_paths=pdf_paths, collection_name="lease_documents")
+
+
+if __name__ == "__main__":
+    main()
