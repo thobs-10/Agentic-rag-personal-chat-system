@@ -123,31 +123,55 @@ def extract_text(docling_results: List[Any], file_paths: List[str]) -> List[List
     _log_extraction_summary(extracted)
     return extracted
 
-    def extract_text(
-        self, docling_results: List[Any], file_paths: List[str]
-    ) -> List[List[Dict[str, Any]]]:
-        """Step 2: Extracts text content page by page from Docling documents."""
-        extracted = []
-        for result, file_path in zip(docling_results, file_paths, strict=True):
-            if hasattr(result, "document") and result.document:
-                pages = self._extract_text_with_docling(result.document, file_path)
-                extracted.append(pages)
-            else:
-                logger.warning(
-                    f"Docling conversion succeeded but no document object found for {file_path}."
+
+def _get_document_pages(result: Any) -> Union[List[Any], Any]:
+    """Extract pages from a Docling document result.
+
+    Args:
+        result: Docling document result
+
+    Returns:
+        List of pages if found, None otherwise
+    """
+    if hasattr(result, "pages"):
+        return result.pages
+    if hasattr(result, "document") and result.document and hasattr(result.document, "pages"):
+        return result.document.pages
+    return None
+
+
+def _process_document_pages(pages: List[Any], file_path: str) -> List[Dict[str, Any]]:
+    """Process all pages in a document.
+
+    Args:
+        pages: List of document pages
+        file_path: Source file path for metadata
+
+    Returns:
+        List of processed pages with text and metadata
+    """
+    pages_data: List[Dict[str, Any]] = []
+
+    try:
+        for page_num, page in enumerate(pages, start=1):
+            if text := extract_page_text(page):
+                pages_data.append(
+                    {
+                        "content": text,
+                        "metadata": {
+                            "source": file_path,
+                            "page_number": page_num,
+                        },
+                    }
                 )
-                extracted.append([])
-        return extracted
+                logger.debug(f"Extracted text from page {page_num} (length: {len(text)})")
+            else:
+                logger.warning(f"No text extracted from page {page_num}")
+    except Exception as e:
+        logger.error(f"Error processing {file_path}: {e}", exc_info=True)
 
-    def chunk_text(self, pages_data: List[List[Dict[str, Any]]]) -> List[List[Dict[str, Any]]]:
-        """Step 3: Splits extracted text into chunks."""
-        return [self._chunk_document_multi_stage(pages) for pages in pages_data]
+    return pages_data
 
-    def generate_embeddings(self, all_chunks: List[List[Dict[str, Any]]]) -> List[np.ndarray]:
-        """Step 4: Generates vector embeddings for each chunk."""
-        return [
-            self._generate_embeddings([chunk["text"] for chunk in chunks]) for chunks in all_chunks
-        ]
 
     def prepare_qdrant_points(
         self, all_chunks: List[List[Dict[str, Any]]], all_embeddings: List[np.ndarray]
