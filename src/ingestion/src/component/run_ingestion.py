@@ -173,64 +173,81 @@ def _process_document_pages(pages: List[Any], file_path: str) -> List[Dict[str, 
     return pages_data
 
 
-    def prepare_qdrant_points(
-        self, all_chunks: List[List[Dict[str, Any]]], all_embeddings: List[np.ndarray]
-    ) -> List[models.PointStruct]:
-        """Step 5: Prepares data points for Qdrant insertion."""
-        points = []
-        for chunks, embeddings in zip(all_chunks, all_embeddings, strict=True):
-            points.extend(
-                [
-                    models.PointStruct(
-                        id=chunk["metadata"]["global_chunk_id"],
-                        vector=embedding.tolist(),
-                        payload=chunk["metadata"],
-                    )
-                    for embedding, chunk in zip(embeddings, chunks, strict=True)
-                ]
+def _log_extraction_summary(extracted: List[List[Dict[str, Any]]]) -> None:
+    """Log summary of text extraction results.
+
+    Args:
+        extracted: List of extracted document contents
+    """
+    total_docs = len(extracted)
+    docs_with_content = sum(1 for doc in extracted if doc)
+    logger.info(f"Documents processed: {total_docs}, with content: {docs_with_content}")
+
+
+@step
+def chunk_text(pages_data: List[List[Dict[str, Any]]]) -> List[List[Dict[str, Any]]]:
+    """Split extracted text into chunks for embedding.
+
+    Args:
+        pages_data: List of document pages with text and metadata
+
+    Returns:
+        List of document chunks, each chunk containing text and metadata
+    """
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=500,
+        chunk_overlap=100,
+        separators=["\n\n", "\n", ". ", " ", ""],
+        length_function=len,
+        is_separator_regex=False,
+    )
+
+    def process_page(page_data: Dict[str, Any], chunk_id_counter: int) -> List[Dict[str, Any]]:
+        """Process a single page into chunks.
+
+        Args:
+            page_data: Page text and metadata
+            chunk_id_counter: Starting chunk ID for this page
+
+        Returns:
+            List of chunks with updated metadata
+        """
+        chunks = []
+        text_chunks = splitter.split_text(page_data["content"])
+
+        for i, text in enumerate(text_chunks, start=1):
+            if not text.strip():
+                continue
+
+            metadata = page_data["metadata"].copy()
+            metadata.update(
+                {
+                    "chunk_id_on_page": i,
+                    "global_chunk_id": chunk_id_counter + i,
+                }
             )
-        return points
 
-    def insert_into_qdrant(self, collection_name: str, points: List[models.PointStruct]) -> None:
-        """Step 6: Inserts points into Qdrant collection."""
-        if points:
-            # Extract vectors and convert to numpy array for compatibility
-            import numpy as np
-
-            vectors = np.array([p.vector for p in points])
-            self.qdrant_db_client.insert_embbedings(collection_name, vectors, points)
-            logger.info(
-                f"Inserted {len(points)} chunks into Qdrant collection '{collection_name}'."
+            chunks.append(
+                {
+                    "text": text.strip(),
+                    "metadata": metadata,
+                }
             )
-        else:
-            logger.info("No points to insert into Qdrant.")
 
-    def create_collection(self, collection_name: str) -> None:
-        """Creates Qdrant collection if not exists."""
-        if not collection_name:
-            raise ValueError("The passed in collection name is not valid")
-        vector_size = self.encoding_model.get_sentence_embedding_dimension()
-        self._create_collection(collection_name, vector_size)
+        return chunks
 
-    def run_ingestion_pipeline(self, file_paths: List[str], collection_name: str) -> None:
-        """Orchestrates the modular ingestion pipeline steps."""
-        logger.info("Starting ingestion pipeline...")
-        self.create_collection(collection_name)
-        docling_results = self.convert_documents(file_paths)
-        pages_data = self.extract_text(docling_results, file_paths)
-        all_chunks = self.chunk_text(pages_data)
-        all_embeddings = self.generate_embeddings(all_chunks)
-        points = self.prepare_qdrant_points(all_chunks, all_embeddings)
-        self.insert_into_qdrant(collection_name, points)
-        logger.info("Ingestion pipeline completed.")
+    all_chunks = []
+    chunk_id_counter = 0
 
+    for pages in pages_data:
+        doc_chunks = []
+        for page_data in pages:
+            page_chunks = process_page(page_data, chunk_id_counter)
+            doc_chunks.extend(page_chunks)
+            chunk_id_counter += len(page_chunks)
+        all_chunks.append(doc_chunks)
 
-if __name__ == "__main__":
-    # Ensure QDRANT_URL environment variable is set
-    # Example: os.environ["QDRANT_URL"] = "http://localhost"
-    if not os.getenv("QDRANT_URL"):
-        logger.error("Please set the QDRANT_URL environment variable.")
-        exit(1)
+    return all_chunks
 
     data_directory = "data/documents"  # Make sure this directory exists and contains PDF files
 
