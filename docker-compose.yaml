@@ -16,61 +16,34 @@ services:
       - app-network
     restart: unless-stopped
 
-  # backend:
-  #   image: backend:latest
-  #   container_name: backend
-  #   build:
-  #     context: ./backend
-  #     dockerfile: Dockerfile
-  #   ports:
-  #     - "5001:5000"
-  #   environment:
-  #     - PYTHONUNBUFFERED=1
-  #   volumes:
-  #     - ./backend:/usr/src/backend
-  #   working_dir: /usr/src/backend
-  #   tty: true
-  #   stdin_open: true
-  #   # command: uvicorn main:app --host 0.0.0 --port 5000 --reload
-  #   command: /bin/sh
-  #   env_file:
-  #     - .env
-  #   networks:
-  #     - app-network
-  #   depends_on:
-  #     - qdrant
-  
-  
-  # ingestion:
-  #   image: ingestion:latest
-  #   container_name: ingestion
-  #   build:
-  #     context: ./ingestion
-  #     dockerfile: Dockerfile
-  #   volumes:
-  #     - ./ingestion:/usr/src/ingestion
-  #   working_dir: /usr/src/ingestion
-  #   tty: true
-  #   stdin_open: true
-  #   environment:
-  #     - PYTHONUNBUFFERED=1
-  #   ports:
-  #     - "8502:8502"
-  #   # command: python src/run_ingestion.py
-  #   command: /bin/sh
-  #   networks:
-  #     - app-network
-  #   env_file:
-  #     - .env
+  zenml-server:
+    image: zenmldocker/zenml-server:latest
+    platform: linux/amd64  # Use amd64 with emulation
+    container_name: zenml-server
+    ports:
+      - "8080:8080"  # Default ZenML server port
+    networks:
+      - app-network
+    environment:
+      - ZENML_STORE_URI=sqlite:////app/zenml.db
+      - ZENML_DEFAULT_USER_NAME=default
+      - ZENML_DEFAULT_USER_PASSWORD=zenml
+      - ZENML_ANALYTICS_OPT_IN=false
+      - ZENML_SERVER_HOST=0.0.0.0
+      - ZENML_SERVER_PORT=8080
+      - ZENML_LOGGING_VERBOSITY=INFO
+    volumes:
+      - zenml_store:/app
+    restart: unless-stopped
+    depends_on:
+      - qdrant
 
 networks:
   app-network:
     driver: bridge
 
 volumes:
-  qdrant:
-    driver: local
-  qdrant_db:
+  zenml_store:
     driver: local
   .qdrant:
     driver: local
