@@ -82,7 +82,7 @@ class BaseAgent(ABC):
 
         try:
             # Use our retriever to get relevant documents
-            documents = await self.retriever.retrieve(query)
+            documents = self.retriever.retrieve(query)
 
             if not documents:
                 logger.warning(f"No relevant documents found for query: {query[:50]}...")
