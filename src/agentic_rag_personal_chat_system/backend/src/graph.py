@@ -15,6 +15,7 @@ from src.agentic_rag_personal_chat_system.backend.src.agents.personal_assistant 
 from src.agentic_rag_personal_chat_system.backend.src.agents.technical_assistant import (
     run_technical_assistant,
 )
+from src.agentic_rag_personal_chat_system.backend.src.llm.huggingface_llm import get_llm
 
 
 # Define our state schema as TypedDict for LangGraph compatibility
@@ -35,20 +36,20 @@ class AgentState(AgentStateRequired, total=False):
     error: Optional[str]
 
 
-def get_llm(model_name: str, temperature: float) -> Any:
-    from src.agentic_rag_personal_chat_system.backend.src.config.llm_config import (
-        HuggingFaceInferenceLLMConfig,
-    )
-    from src.agentic_rag_personal_chat_system.backend.src.llm.huggingface_llm import (
-        HuggingFaceInferenceLLM,
-    )
+# def get_llm(model_name: str, temperature: float) -> Any:
+#     from src.agentic_rag_personal_chat_system.backend.src.config.llm_config import (
+#         HuggingFaceInferenceLLMConfig,
+#     )
+#     from src.agentic_rag_personal_chat_system.backend.src.llm.huggingface_llm import (
+#         HuggingFaceInferenceLLM,
+#     )
 
-    return HuggingFaceInferenceLLM(
-        config=HuggingFaceInferenceLLMConfig(
-            model_name=model_name,
-            temperature=temperature,
-        )
-    )
+#     return HuggingFaceInferenceLLM(
+#         config=HuggingFaceInferenceLLMConfig(
+#             model_name=model_name,
+#             temperature=temperature,
+#         )
+#     )
 
 
 async def classify_query(query: str) -> str:
@@ -92,21 +93,25 @@ async def route_and_process(state: AgentState) -> AgentState:
 
         # Update state
         state = state.copy()
-        state.update({
-            "agent_type": agent_type,
-            "response": response.get("response", "No response generated"),
-            "sources": response.get("sources", [])
-        })
+        state.update(
+            {
+                "agent_type": agent_type,
+                "response": response.get("response", "No response generated"),
+                "sources": response.get("sources", []),
+            }
+        )
 
     except Exception as e:
         logger.error(f"Error in route_and_process: {e}")
         state = state.copy()
-        state.update({
-            "agent_type": "error",
-            "response": "I apologize, but I encountered an error processing your request. Please try again.",
-            "sources": [],
-            "error": str(e)
-        })
+        state.update(
+            {
+                "agent_type": "error",
+                "response": "I apologize, but I encountered an error processing your request. Please try again.",
+                "sources": [],
+                "error": str(e),
+            }
+        )
 
     return state
 
