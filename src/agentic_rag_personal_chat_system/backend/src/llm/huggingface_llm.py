@@ -3,12 +3,11 @@ LLM integration using Hugging Face's Inference API.
 """
 
 import os
-from typing import Dict, List, Any, Optional
+from typing import Any, List, Optional
 
 from huggingface_hub import InferenceClient
-from langchain.callbacks.manager import CallbackManagerForLLMRun
+from langchain.callbacks.manager import AsyncCallbackManagerForLLMRun, CallbackManagerForLLMRun
 from langchain.llms.base import LLM
-from langchain.schema import AIMessage, HumanMessage, SystemMessage
 from loguru import logger
 
 from src.agentic_rag_personal_chat_system.backend.src.config.llm_config import (
@@ -21,19 +20,33 @@ class HuggingFaceInferenceLLM(LLM):
 
     def __init__(
         self,
-        config: HuggingFaceInferenceLLMConfig = HuggingFaceInferenceLLMConfig(),
+        config: Optional[HuggingFaceInferenceLLMConfig] = None,
+        model_name: Optional[str] = None,
+        temperature: Optional[float] = None,
+        **kwargs
     ):
+        """Initialize the HuggingFace LLM.
+
+        Args:
+            config: Configuration object (preferred)
+            model_name: Model name (alternative to config)
+            temperature: Temperature setting (alternative to config)
+            **kwargs: Additional arguments passed to parent
+        """
+        super().__init__(**kwargs)
+
+        # Use config if provided, otherwise create from individual parameters
+        if config is None:
+            config = HuggingFaceInferenceLLMConfig(
+                model_name=model_name or "deepseek-ai/DeepSeek-V3.1-Terminus",
+                temperature=temperature if temperature is not None else 0.0
+            )
+
         self.provider = config.provider
         self.model_name = config.model_name
         self.temperature = config.temperature
         self.top_p = config.top_p
         self.max_tokens = config.max_tokens
-
-    # provider: str = "novita"
-    # model_name: str = "deepseek-ai/DeepSeek-V3.1-Terminus"
-    # temperature: float = 0.0
-    # top_p: float = 0.95
-    # max_tokens: int = 4096
 
     @property
     def _llm_type(self) -> str:
@@ -54,7 +67,6 @@ class HuggingFaceInferenceLLM(LLM):
     def _create_client(self) -> InferenceClient:
         """Create and return an InferenceClient."""
         return InferenceClient(
-            provider=self.provider,
             api_key=self._api_key,
         )
 
@@ -93,31 +105,17 @@ class HuggingFaceInferenceLLM(LLM):
             logger.error(f"Error calling Hugging Face Inference API: {e}")
             raise
 
-    def format_messages_for_llm(
-        self, system_message: str, human_message: str, chat_history: List = None
-    ) -> List[Dict[str, str]]:
-        """Format messages for the Hugging Face chat API."""
-        formatted_messages = []
-
-        # Add system message
-        if system_message:
-            formatted_messages.append({"role": "system", "content": system_message})
-
-        # Add chat history if provided
-        if chat_history:
-            for message in chat_history:
-                if isinstance(message, HumanMessage):
-                    formatted_messages.append({"role": "user", "content": message.content})
-                elif isinstance(message, AIMessage):
-                    formatted_messages.append({"role": "assistant", "content": message.content})
-                elif isinstance(message, SystemMessage):
-                    formatted_messages.append({"role": "system", "content": message.content})
-
-        # Add the current human message
-        formatted_messages.append({"role": "user", "content": human_message})
-
-        return formatted_messages
-
+    async def _acall(
+        self,
+        prompt: str,
+        stop: Optional[List[str]] = None,
+        run_manager: Optional[AsyncCallbackManagerForLLMRun] = None,
+        **kwargs: Any,
+    ) -> str:
+        """Async version of _call for better LangGraph compatibility."""
+        # For now, we'll use the sync version but wrap it
+        # In production, you might want to use aiohttp or similar for true async
+        return self._call(prompt, stop, None, **kwargs)
 
 def get_llm(
     model_name: str = "deepseek-ai/DeepSeek-V3.1-Terminus", temperature: float = 0.0
