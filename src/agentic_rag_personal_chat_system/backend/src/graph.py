@@ -2,9 +2,8 @@
 LangGraph implementation for orchestrating the multi-agent system.
 """
 
-from typing import Any, Dict, List, Optional, Tuple, TypedDict
+from typing import Any, Dict, List, Optional, TypedDict
 
-from langchain.agents import AgentType, Tool, initialize_agent
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
@@ -33,7 +32,6 @@ class AgentState(AgentStateRequired, total=False):
     agent_type: str
     response: Optional[str]
     sources: List[Dict[str, Any]]
-    metadata: Dict[str, Any]
     error: Optional[str]
 
 
@@ -53,103 +51,79 @@ def get_llm(model_name: str, temperature: float) -> Any:
     )
 
 
-async def route_query_with_react(state: AgentState) -> Tuple[str, AgentState]:
-    """Route using ReAct agent."""
-    query = state["query"]
+async def classify_query(query: str) -> str:
+    """Simple query classification."""
     llm = get_llm(model_name="deepseek-ai/DeepSeek-V3.1-Terminus", temperature=0.0)
-    tools = [
-        Tool(
-            name="Personal Assistant",
-            func=run_personal_assistant,
-            description="Handles personal queries like daily life, general knowledge, and casual conversation, lease information and personal documents information",
-        ),
-        Tool(
-            name="Technical Assistant",
-            func=run_technical_assistant,
-            description="Handles technical queries about coding, programming, data science, deeplearning, and AI",
-        ),
-    ]
 
-    # Create the routing agent
-    system_agent = initialize_agent(
-        tools, llm=llm, agent=AgentType.CHAT_ZERO_SHOT_REACT_DESCRIPTION
-    )
-    system_agent_query = f"""
-    Decide whether the following query should be handled by the 'Personal Assistant' or 'Technical Assistant' based on its content:
-    
-    USER QUERY: {query}
-    
-    Respond with either 'Personal Assistant' or 'Technical Assistant'.
-    
-    If you cannot route the query or decide which agent should be answering,
-    respond with an appropriate nice message to inform the user that you are
-    unable to route their query and they should rephrase it or ask something else.
+    prompt = f"""
+    Classify this query as 'technical' or 'personal':
+
+    Query: {query}
+
+    Technical: programming, coding, software, AI, data science, development
+    Personal: general knowledge, daily life, documents, leases, casual conversation
+
+    Answer with just one word: technical or personal
     """
-    response = system_agent.run(system_agent_query)
-    logger.info(f"Router agent response: {response}")
 
-    if "Personal Assistant" in response:
-        return "personal", state
-    elif "Technical Assistant" in response:
-        return "technical", state
-    else:
-        raise ValueError("Could not determine the appropriate agent")
-
-
-async def process_with_personal_assistant(state: AgentState) -> AgentState:
-    """Process the query with the personal assistant."""
-    # This is a placeholder that will be implemented later
-    # In a real implementation, this would use the retrieval system and LLM
-    state = state.copy()
-    state["agent_type"] = "personal"
-    state["response"] = f"Personal assistant response to: {state['query']}"
-    state["sources"] = [
-        {"text": "Example source", "source": "personal_collection", "relevance": 0.95}
-    ]
-    response = run_personal_assistant(state["query"])
-    return state
+    try:
+        response = await llm.ainvoke(prompt)
+        classification = response.lower().strip()
+        return "technical" if "technical" in classification else "personal"
+    except Exception as e:
+        logger.error(f"Classification error: {e}")
+        return "personal"  # Default fallback
 
 
-async def process_with_technical_assistant(state: AgentState) -> AgentState:
-    """Process the query with the technical assistant."""
-    # This is a placeholder that will be implemented later
-    # In a real implementation, this would use the retrieval system and LLM
-    state = state.copy()
-    state["agent_type"] = "technical"
-    state["response"] = f"Technical assistant response to: {state['query']}"
-    state["sources"] = [
-        {"text": "Example technical source", "source": "technical_collection", "relevance": 0.98}
-    ]
+async def route_and_process(state: AgentState) -> AgentState:
+    """Single function to route and process query."""
+    query = state["query"]
+
+    try:
+        # Simple classification
+        agent_type = await classify_query(query)
+        logger.info(f"Classified query as: {agent_type}")
+
+        # Direct agent call
+        if agent_type == "technical":
+            response = await run_technical_assistant(query)
+        else:
+            response = await run_personal_assistant(query)
+
+        # Update state
+        state = state.copy()
+        state.update({
+            "agent_type": agent_type,
+            "response": response.get("response", "No response generated"),
+            "sources": response.get("sources", [])
+        })
+
+    except Exception as e:
+        logger.error(f"Error in route_and_process: {e}")
+        state = state.copy()
+        state.update({
+            "agent_type": "error",
+            "response": "I apologize, but I encountered an error processing your request. Please try again.",
+            "sources": [],
+            "error": str(e)
+        })
+
     return state
 
 
 def create_system_graph() -> CompiledStateGraph:
-    """Create the LangGraph for the agent workflow."""
+    """Create the simplified LangGraph for the agent workflow."""
     # Create a graph with the AgentState schema
     workflow = StateGraph(AgentState)
 
-    # Add the nodes to the graph
-    workflow.add_node("router", route_query_with_react)
-    workflow.add_node("personal_assistant", process_with_personal_assistant)
-    workflow.add_node("technical_assistant", process_with_technical_assistant)
+    # Single node handles routing and processing
+    workflow.add_node("process", route_and_process)
 
-    # Add conditional edges from the router to the assistants
-    workflow.add_conditional_edges(
-        "router",
-        lambda x: x,  # Pass through the router's output as the key
-        {
-            "personal": "personal_assistant",
-            "technical": "technical_assistant",
-        },
-    )
+    # Simple linear flow
+    workflow.add_edge(START, "process")
+    workflow.add_edge("process", END)
 
-    # Add edges from the assistants to the end
-    workflow.add_edge(START, "router")
-    workflow.add_edge("personal_assistant", END)
-    workflow.add_edge("technical_assistant", END)
-
-    # Set the entry point
-    workflow.set_entry_point("router")
+    # Compile with memory
     memory = MemorySaver()
     workflow = workflow.compile(checkpointer=memory)
 
