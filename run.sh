@@ -40,3 +40,23 @@ setup_zenml() {
         return 1
     fi
 }
+
+# clean codebase
+clean() {
+  echo "Cleaning the codebase..."
+  find . -type d -name ".ruff_cache" -exec rm -rf {} +
+  find . -type d -name ".pytest_cache" -exec rm -rf {} +
+  find . -type d -name ".mypy_cache" -exec rm -rf {} +
+  find . -type d -name ".ipynb_checkpoints" -exec rm -rf {} +
+  find . -type d -name "cachedir" -exec rm -rf {} +
+  find . -type d -name "*.egg-info" -exec rm -rf {} +
+  echo "Codebase cleaned."
+}
+
+# For CI: Run specific functions if arguments are provided
+if [ $# -gt 0 ]; then
+    for func in "$@"; do
+        $func
+    done
+    exit 0
+fi
