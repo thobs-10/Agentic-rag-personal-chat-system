@@ -5,7 +5,7 @@ import numpy as np
 from loguru import logger
 from qdrant_client import QdrantClient, models
 
-from src.ingestion.src.config import QdrantDBConfig
+from agentic_rag_personal_chat_system.configs.qdrant_config import QdrantDBConfig
 
 
 class QdrantDBClient:
@@ -24,6 +24,7 @@ class QdrantDBClient:
         self,
         collection_name: str,
         vector_size: int = 384,  # Default size for all-MiniLM-L6-v2
+        distance: Any = models.Distance.COSINE,
     ) -> None:
         """Creates a new collection in Qdrant.
 
@@ -47,7 +48,8 @@ class QdrantDBClient:
             self.qdrant_client.create_collection(
                 collection_name=collection_name,
                 vectors_config=models.VectorParams(
-                    size=vector_size, distance=models.Distance.COSINE
+                    size=vector_size,
+                    distance=distance,
                 ),
             )
             logger.info(f"Successfully created collection: {collection_name}")
@@ -121,3 +123,16 @@ class QdrantDBClient:
             return self.qdrant_client.get_collection(collection_name)
         except Exception:
             return None
+
+    def remove_collection(self, collection_name: str) -> None:
+        """Deletes a Qdrant collection.
+
+        Args:
+            collection_name: Name of the collection to delete
+        """
+        try:
+            self.qdrant_client.delete_collection(collection_name=collection_name)
+            logger.info(f"Successfully deleted collection: {collection_name}")
+        except Exception as e:
+            logger.exception(f"Failed to delete collection {collection_name}: {e}")
+            raise
