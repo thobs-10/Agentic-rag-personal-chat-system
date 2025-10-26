@@ -5,15 +5,11 @@ Base agent class for all specialized assistants.
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, TypedDict
 
-from langchain.chains import LLMChain
-from langchain.memory import ConversationBufferMemory
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from loguru import logger
 
-# Import our custom LLM and retriever
+from src.agentic_rag_personal_chat_system.backend.src.config.agent_config import AgentConfig
 from src.agentic_rag_personal_chat_system.backend.src.llm.huggingface_llm import get_llm
 from src.agentic_rag_personal_chat_system.backend.src.retrieval.retriever import Retriever
-from src.agentic_rag_personal_chat_system.backend.src.config.agent_config import AgentConfig
 
 
 class AgentResponse(TypedDict, total=False):
@@ -52,9 +48,6 @@ class BaseAgent(ABC):
         # Initialize LLM using our custom implementation
         self.llm = get_llm(model_name=self.model_name, temperature=self.temperature)
 
-        # Initialize memory
-        self.memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
-
         # Initialize retriever for vector DB access
         self.retriever = Retriever(collection_name=self.collection_name, top_k=self.top_k)
 
@@ -68,7 +61,7 @@ class BaseAgent(ABC):
         """Return the system prompt for this agent."""
         pass
 
-    async def retrieve_relevant_context(self, query: str) -> List[Dict[str, Any]]:
+    def retrieve_relevant_context(self, query: str) -> List[Dict[str, Any]]:
         """
         Retrieve relevant documents from the vector database.
 
@@ -86,7 +79,6 @@ class BaseAgent(ABC):
 
             if not documents:
                 logger.warning(f"No relevant documents found for query: {query[:50]}...")
-                # Return empty list if no documents found
                 return []
 
             logger.info(f"Retrieved {len(documents)} relevant documents")
@@ -94,7 +86,6 @@ class BaseAgent(ABC):
 
         except Exception as e:
             logger.error(f"Error retrieving documents: {e}", exc_info=True)
-            # Return empty list on error
             return []
 
     def _format_context_for_prompt(
@@ -120,30 +111,30 @@ class BaseAgent(ABC):
 
         return "\n\n".join(formatted_contexts)
 
-    def _create_prompt(self) -> ChatPromptTemplate:
+    def _create_prompt(self, query: str, context: str) -> str:
         """
-        Create the prompt template for the agent.
+        Create a simple prompt for the agent.
+
+        Args:
+            query: User query
+            context: Retrieved context formatted as string
 
         Returns:
-            ChatPromptTemplate: The prompt template for the agent
+            Formatted prompt string
         """
-        # Basic RAG prompt template
-        template = ChatPromptTemplate.from_messages(
-            [
-                ("system", self.system_prompt),
-                MessagesPlaceholder(variable_name="chat_history"),
-                ("system", "Relevant context information:\n{context}"),
-                ("human", "{query}"),
-            ]
-        )
+        prompt = f"""
+                    {self.system_prompt}
 
-        return template
+                    Context Information:
+                    {context}
 
-    async def _generate_response(
-        self,
-        query: str,
-        context: str,
-    ) -> str:
+                    User Question: {query}
+
+                    Please answer based on the provided context and your knowledge. If the context doesn't contain relevant information, please say so clearly.
+                    """
+        return prompt.strip()
+
+    async def _generate_response(self, query: str, context: str) -> str:
         """
         Generate a response using the LLM.
 
@@ -154,18 +145,15 @@ class BaseAgent(ABC):
         Returns:
             Generated response
         """
-        prompt = self._create_prompt()
-        chain = LLMChain(llm=self.llm, prompt=prompt)
+        prompt = self._create_prompt(query, context)
 
-        # Generate response
-        result = await chain.ainvoke(
-            {"query": query, "context": context, "chat_history": self.memory.chat_memory.messages}
-        )
-
-        # Update memory with the interaction
-        self.memory.save_context({"input": query}, {"output": result["text"]})
-
-        return result["text"]
+        # Generate response using our LLM
+        try:
+            response = await self.llm.ainvoke(prompt)
+            return response
+        except Exception as e:
+            logger.error(f"Error generating response: {e}")
+            return "I apologize, but I encountered an error while generating a response."
 
     async def process_query(
         self,
@@ -186,7 +174,7 @@ class BaseAgent(ABC):
             logger.info(f"Processing query with {self.__class__.__name__}")
 
             # Retrieve relevant documents
-            relevant_docs = await self.retrieve_relevant_context(query)
+            relevant_docs = self.retrieve_relevant_context(query)
 
             # Format contexts for the prompt
             formatted_context = self._format_context_for_prompt(relevant_docs)
