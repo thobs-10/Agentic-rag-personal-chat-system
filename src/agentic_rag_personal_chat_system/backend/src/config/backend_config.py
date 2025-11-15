@@ -12,6 +12,7 @@ class APIConfig(BaseModel):
     host: str = "0.0.0.0"
     port: int = 8000
     debug: bool = False
+    reload: bool = True
     allowed_origins: List[str] = ["http://localhost:3000"]
 
 
