@@ -43,13 +43,59 @@ pip install -e .
 
 ### Running with Docker
 
-Build and run the containers:
+The system is containerized with three main services:
+
+- **Qdrant**: Vector database (port 6333)
+- **Backend**: FastAPI API server (port 8000)
+- **Frontend**: Web interface (port 3000)
+- **Ingestion**: Data processing service (runs on-demand)
+
+#### Quick Start - All Services
 
 ```bash
-docker-compose up -d
+# Start all services
+make docker-all
+# or
+docker-compose up --build
 ```
 
-The API will be accessible at `http://localhost:8000`.
+#### Individual Services
+
+```bash
+# Backend only (with database)
+make docker-backend
+
+# Frontend only
+make docker-frontend
+
+# Database only
+make docker-db
+
+# Run data ingestion (one-time job)
+make docker-ingest
+```
+
+#### Service URLs
+
+- **API**: http://localhost:8000
+- **Frontend**: http://localhost:3000
+- **Qdrant Dashboard**: http://localhost:6333/dashboard
+
+#### Docker Commands
+
+```bash
+# View logs
+make docker-logs
+
+# Stop all services
+make docker-stop
+
+# Clean up (removes volumes)
+make docker-clean
+
+# Rebuild all images
+make docker-rebuild
+```
 
 ### Running Locally
 
@@ -96,6 +142,11 @@ src/
   ingestion/             # Data ingestion pipeline
   frontend/              # Frontend components (placeholder)
 ```
+### Ingestion Architecture
+![assets/ingestion_architecture.png](assets/ingestion_architecture.png)
+
+### Backend Architecture
+![assets/backend_architecture.png](assets/backend_architecture.png)
 
 ## License
 
