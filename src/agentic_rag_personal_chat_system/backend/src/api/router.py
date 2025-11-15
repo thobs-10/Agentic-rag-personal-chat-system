@@ -12,7 +12,7 @@ from agentic_rag_personal_chat_system.backend.src.api.models import (
     QueryResponse,
     ErrorResponse,
 )
-from agentic_rag_personal_chat_system.backend.src.config.backend_config import config
+from agentic_rag_personal_chat_system.backend.src.config.backend_config import APIConfig
 from agentic_rag_personal_chat_system.backend.src.graph import get_graph_instance, AgentState
 
 # Create FastAPI app
@@ -25,7 +25,7 @@ app = FastAPI(
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=config.api.allowed_origins,
+    allow_origins=APIConfig.allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -123,7 +123,7 @@ if __name__ == "__main__":
 
     uvicorn.run(
         "agentic_rag_personal_chat_system.backend.src.api.router:app",
-        host=config.api.host,
-        port=config.api.port,
-        reload=config.api.debug,
+        host=APIConfig.host,
+        port=APIConfig.port,
+        reload=APIConfig.reload,
     )

@@ -1,0 +1,19 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Copy dependency files
+COPY pyproject.toml /app/
+
+# Copy source code
+COPY src/ /app/src/
+
+# Install dependencies
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -e .
+
+# Create data directory
+RUN mkdir -p /app/data
+
+# Default command - can be overridden in docker-compose
+CMD ["python", "src/agentic_rag_personal_chat_system/ingestion/src/component/run_ingestion.py"]

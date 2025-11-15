@@ -6,10 +6,7 @@ from typing import Any, Dict
 
 from loguru import logger
 
-from src.agentic_rag_personal_chat_system.backend.src.agents.base_agent import (
-    BaseAgent,
-    AgentResponse,
-)
+from src.agentic_rag_personal_chat_system.backend.src.agents.base_agent import BaseAgent
 
 
 class TechnicalAssistant(BaseAgent):
