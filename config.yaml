@@ -1,0 +1,35 @@
+# Model configuration for embeddings
+model:
+  name: all-MiniLM-L6-v2
+  device: cpu
+  batch_size: 32
+  vector_size: 384
+
+# Database configuration
+database:
+  url: http://localhost:6333 # Set your Qdrant URL directly here
+  collection_name: lease_documents
+  recreate_collection: false
+  distance: Cosine
+
+# Pipeline configuration
+pipeline:
+  loading_strategy: langchain
+  data_dir: data/documents
+
+# Text processing options
+text:
+  chunk_size: 500
+  chunk_overlap: 50
+  separator: "\n"
+
+# Logging configuration
+logging:
+  level: INFO
+  file: logs/ingestion.log
+  format: "%(asctime)s | %(levelname)s | %(message)s"
+
+# Environment settings
+environment:
+  zenml_server: http://127.0.0.1:8080
+  temp_dir: /tmp/ingestion
