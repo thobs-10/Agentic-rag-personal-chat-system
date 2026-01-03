@@ -23,6 +23,7 @@ class PersonalAssistant(BaseAgent):
             collection_name="personal_collection",
             model_name=model_name,
             temperature=0.3,  # Slightly higher temperature for more natural responses
+            provider="ollama",
             top_k=3,
         )
 

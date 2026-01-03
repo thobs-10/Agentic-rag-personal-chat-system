@@ -15,9 +15,24 @@ An intelligent conversational system using LangGraph for agent orchestration and
 This system consists of:
 
 1. **LangGraph Orchestration**: Manages the flow between different agents
-2. **Specialized Agents**: Technical assistant and personal assistant
-3. **Vector Database**: Uses Qdrant for efficient similarity search
+2. **Specialized Agents**: Technical assistant and personal assistant with separate knowledge bases
+3. **Vector Database**: Uses Qdrant for efficient similarity search with multiple collections
 4. **FastAPI Backend**: Provides REST endpoints for interaction
+5. **Multi-Collection Ingestion**: Processes documents into agent-specific collections
+
+### Data Structure
+
+The system maintains separate collections for each agent:
+
+- **Technical Collection** (`technical_collection`): Contains technical documents, programming guides, API docs
+  - Data directory: `data/technical/`
+  - Used by: Technical Assistant
+  
+- **Personal Collection** (`personal_collection`): Contains personal documents, notes, leases, general knowledge
+  - Data directory: `data/personal/`
+  - Used by: Personal Assistant
+
+Documents are automatically routed to the appropriate collection during ingestion based on their directory location.
 
 ## Getting Started
 

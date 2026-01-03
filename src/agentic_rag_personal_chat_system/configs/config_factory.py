@@ -1,13 +1,11 @@
 """This module defines a configuration factory using OmegaConf to load and manage application settings from the root config yaml file."""
 
-from omegaconf import OmegaConf, DictConfig
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional, cast
-import os
-import logging
-from dataclasses import dataclass, field
 
 from loguru import logger
+from omegaconf import DictConfig, OmegaConf
 
 
 @dataclass
@@ -19,9 +17,18 @@ class ModelConfig:
 
 
 @dataclass
+class CollectionConfig:
+    name: str
+    data_dir: str
+
+
+@dataclass
 class DatabaseConfig:
     url: str = "http://localhost:6333"
-    collection_name: str = "lease_documents"
+    collections: list[CollectionConfig] = field(default_factory=lambda: [
+        CollectionConfig(name="technical_collection", data_dir="data/technical"),
+        CollectionConfig(name="personal_collection", data_dir="data/personal")
+    ])
     recreate_collection: bool = False
     distance: str = "cosine"
 
@@ -36,7 +43,6 @@ class TextConfig:
 @dataclass
 class PipelineConfig:
     loading_strategy: str = "langchain"
-    data_dir: str = "data/documents"
 
 
 @dataclass

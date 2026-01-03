@@ -15,6 +15,7 @@ from src.agentic_rag_personal_chat_system.backend.src.agents.personal_assistant 
 from src.agentic_rag_personal_chat_system.backend.src.agents.technical_assistant import (
     run_technical_assistant,
 )
+from src.agentic_rag_personal_chat_system.backend.src.config.backend_config import config
 from src.agentic_rag_personal_chat_system.backend.src.llm.huggingface_llm import get_llm
 
 
@@ -36,25 +37,13 @@ class AgentState(AgentStateRequired, total=False):
     error: Optional[str]
 
 
-# def get_llm(model_name: str, temperature: float) -> Any:
-#     from src.agentic_rag_personal_chat_system.backend.src.config.llm_config import (
-#         HuggingFaceInferenceLLMConfig,
-#     )
-#     from src.agentic_rag_personal_chat_system.backend.src.llm.huggingface_llm import (
-#         HuggingFaceInferenceLLM,
-#     )
-
-#     return HuggingFaceInferenceLLM(
-#         config=HuggingFaceInferenceLLMConfig(
-#             model_name=model_name,
-#             temperature=temperature,
-#         )
-#     )
-
-
 async def classify_query(query: str) -> str:
     """Simple query classification."""
-    llm = get_llm(model_name="deepseek-ai/DeepSeek-V3.1-Terminus", temperature=0.0)
+    llm = get_llm(
+        model_name=config.llm.model,
+        temperature=config.llm.temperature,
+        provider=config.llm.provider,
+    )
 
     prompt = f"""
     Classify this query as 'technical' or 'personal':

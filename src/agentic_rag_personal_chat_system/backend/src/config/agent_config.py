@@ -10,16 +10,18 @@ class AgentConfig(BaseModel):
     memory_enabled: bool = True
     retrieval_top_k: int = 5
     temperature: float = 0.0
-    model_name: str = "deepseek-ai/DeepSeek-V3.1-Terminus"
+    # model_name: str = "deepseek-ai/DeepSeek-V3.1-Terminus"
 
 
 class PersonalAgentConfig(AgentConfig):
     """Personal agent specific configuration."""
 
     collection_name: str = "lease_documents"
+    model_name: str = "llama3.2:3b"
 
 
 class TechnicalAgentConfig(AgentConfig):
     """Technical agent specific configuration."""
 
     collection_name: str = "technical_documents"
+    model_name: str = "codellama/CodeLlama-7b-Instruct-v2"
