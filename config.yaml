@@ -7,15 +7,26 @@ model:
 
 # Database configuration
 database:
-  url: http://localhost:6333 # Set your Qdrant URL directly here
-  collection_name: lease_documents
+  url: http://localhost:6333
+  collections:
+    - name: technical_collection
+      data_dir: data/technical
+    - name: personal_collection
+      data_dir: data/personal
   recreate_collection: false
   distance: Cosine
+
+# LLM configuration
+llm:
+  model_name: "Qwen/Qwen3-Coder-30B-A3B-Instruct"
+  temperature: 0.1
+  use_local: true
+  device: "auto" # Will use CUDA if available, otherwise CPU
+  max_tokens: 2048
 
 # Pipeline configuration
 pipeline:
   loading_strategy: langchain
-  data_dir: data/documents
 
 # Text processing options
 text:
