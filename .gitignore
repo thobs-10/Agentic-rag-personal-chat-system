@@ -182,3 +182,7 @@ cython_debug/
 *.log
 # *.yaml
 .zenml/
+
+# Data directories (PDF documents)
+data/
+data/.gitkeep
