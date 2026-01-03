@@ -12,7 +12,10 @@ from src.agentic_rag_personal_chat_system.backend.src.agents.base_agent import B
 class TechnicalAssistant(BaseAgent):
     """Technical assistant specializing in programming, coding, and technical topics."""
 
-    def __init__(self, model_name: str = "gpt-3.5-turbo"):
+    def __init__(
+        self,
+        model_name: str = "gpt-3.5-turbo",
+    ):
         """
         Initialize the technical assistant.
 
@@ -20,10 +23,11 @@ class TechnicalAssistant(BaseAgent):
             model_name: Name of the LLM model to use
         """
         super().__init__(
-            collection_name="technical_collection",
+            collection_name="personal_collection",
             model_name=model_name,
-            temperature=0.0,  # Lower temperature for more precise technical responses
-            top_k=5,
+            temperature=0.3,  # Slightly higher temperature for more natural responses
+            provider="ollama",
+            top_k=3,
         )
 
     def _get_system_prompt(self) -> str:

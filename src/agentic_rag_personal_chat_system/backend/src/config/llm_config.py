@@ -11,3 +11,13 @@ class HuggingFaceInferenceLLMConfig(BaseModel):
     temperature: float = 0.0
     top_p: float = 0.95
     max_tokens: int = 4096
+
+
+class OllamainferenceLLMConfig(BaseModel):
+    """LLM wrapper for Ollama's Inference API."""
+
+    model_name: str = "llama3.2:3b"
+    temperature: float = 0.1
+    top_p: float = 0.95
+    max_tokens: int = 4096
+    base_url: str = "http://localhost:11434"

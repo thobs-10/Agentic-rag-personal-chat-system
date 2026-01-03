@@ -27,7 +27,8 @@ class BaseAgent(ABC):
     def __init__(
         self,
         collection_name: str,
-        model_name: str = AgentConfig().model_name,
+        model_name: str,
+        provider: str,
         temperature: float = AgentConfig().temperature,
         top_k: int = AgentConfig().retrieval_top_k,
     ):
@@ -36,17 +37,22 @@ class BaseAgent(ABC):
 
         Args:
             collection_name: Name of the vector DB collection to query
-            model_name: Name of the LLM model to use
+            # model_name: Name of the LLM model to use
             temperature: Temperature setting for the LLM (0.0 = deterministic)
             top_k: Number of relevant documents to retrieve
         """
         self.collection_name = collection_name
         self.model_name = model_name
+        self.provider = provider
         self.temperature = temperature
         self.top_k = top_k
 
         # Initialize LLM using our custom implementation
-        self.llm = get_llm(model_name=self.model_name, temperature=self.temperature)
+        self.llm = get_llm(
+            self.model_name,
+            self.temperature,
+            self.provider,
+        )
 
         # Initialize retriever for vector DB access
         self.retriever = Retriever(collection_name=self.collection_name, top_k=self.top_k)
@@ -130,7 +136,7 @@ class BaseAgent(ABC):
 
                     User Question: {query}
 
-                    Please answer based on the provided context and your knowledge. If the context doesn't contain relevant information, please say so clearly.
+                    Please answer the prompt based on the provided context and your knowledge. If the context doesn't contain relevant information or the prompt does not have accompanying information/context, please say so clearly.
                     """
         return prompt.strip()
 
