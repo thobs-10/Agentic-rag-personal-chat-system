@@ -4,31 +4,30 @@ import os
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
 import torch
+from loguru import logger
+from sentence_transformers import SentenceTransformer
+
+# Import the configuration system
+from agentic_rag_personal_chat_system.configs.config_factory import AppConfig, ConfigFactory
+from agentic_rag_personal_chat_system.ingestion.src.component.qdrant_db_client import (
+    QdrantDBClient,
+)
+from agentic_rag_personal_chat_system.ingestion.src.component.strategy import (
+    DoclingStrategy,
+    LangChainStrategy,
+)
+from agentic_rag_personal_chat_system.ingestion.src.main_utils.utils import (
+    get_splitter_object,
+    process_page,
+)
 
 # Set device to CPU as configured
 device = torch.device("cpu")
 os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 os.environ["CUDA_VISIBLE_DEVICES"] = ""
 os.environ["PYTORCH_MPS_DEVICE"] = "cpu"
-
-from sentence_transformers import SentenceTransformer
-from loguru import logger
-
-from agentic_rag_personal_chat_system.ingestion.src.component.qdrant_db_client import (
-    QdrantDBClient,
-)
-from agentic_rag_personal_chat_system.ingestion.src.main_utils.utils import (
-    process_page,
-    get_splitter_object,
-)
-from agentic_rag_personal_chat_system.ingestion.src.component.strategy import (
-    LangChainStrategy,
-    DoclingStrategy,
-)
-
-# Import the configuration system
-from agentic_rag_personal_chat_system.configs.config_factory import ConfigFactory, AppConfig
 
 
 class IngestionPipeline:
@@ -389,30 +388,32 @@ def main(config_path: Optional[Path] = None) -> None:
     logger.info("Ingestion pipeline completed for all collections")
 
 
-def run_ingestion_pipeline(
-    collection_name: Optional[str] = None,
-    config_path: Optional[Path] = None,
-) -> None:
-    """Run the complete ingestion pipeline with configuration.
+# def run_ingestion_pipeline(
+#     collection_name: Optional[str] = None,
+#     config_path: Optional[Path] = None,
+# ) -> None:
+#     """Run the complete ingestion pipeline with configuration.
 
-    Args:
-        collection_name: Optional specific collection name to process (processes all if None)
-        config_path: Optional path to config file (uses default if None)
-    """
-    if config_path:
-        ConfigFactory.initialize(config_path)
+#     Args:
+#         collection_name: Optional specific collection name to process (processes all if None)
+#         config_path: Optional path to config file (uses default if None)
+#     """
+#     if config_path:
+#         ConfigFactory.initialize(config_path)
 
-    config = ConfigFactory.get_config()
-    pipeline = IngestionPipeline(config)
-    pipeline.run_pipeline([], collection_name)
+#     config = ConfigFactory.get_config()
+#     pipeline = IngestionPipeline(config)
+#     pipeline.run_pipeline([], collection_name)
 
 
-def default_main() -> None:
-    """Default entry point that looks for config in standard location."""
-    default_config_path = Path(__file__).parent.parent.parent.parent.parent.parent / "config.yaml"
-    main(default_config_path)
+# def default_main() -> None:
+#     """Default entry point that looks for config in standard location."""
+#     default_config_path = Path(__file__).parent.parent.parent.parent.parent.parent / "config.yaml"
+#     main(default_config_path)
 
 
 if __name__ == "__main__":
     # Run the pipeline with configured settings for all collections
-    default_main()
+    # default_main()
+    default_config_path = Path(__file__).parent.parent.parent.parent.parent.parent / "config.yaml"
+    main(default_config_path)
