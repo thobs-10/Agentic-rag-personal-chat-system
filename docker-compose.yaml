@@ -45,12 +45,11 @@ services:
       - LOG_LEVEL=INFO
     networks:
       - app-network
-    restart: "no"  # Run once and exit
+    restart: "no" # Run once and exit
     depends_on:
-      qdrant:
-        condition: service_healthy
+      - qdrant
     profiles:
-      - ingestion  # Only run when explicitly requested
+      - ingestion # Only run when explicitly requested
 
 networks:
   app-network:

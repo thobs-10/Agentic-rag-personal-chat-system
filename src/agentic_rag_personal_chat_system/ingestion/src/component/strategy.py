@@ -1,10 +1,9 @@
 import os
-import sys
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Dict, List, Union, Tuple
+from typing import Any, Dict, List, Tuple, Union
 
-from docling.document_converter import DocumentConverter, PdfFormatOption
+from docling.document_converter import DocumentConverter
 from langchain.document_loaders import PyPDFLoader
 from loguru import logger
 

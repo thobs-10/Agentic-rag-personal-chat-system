@@ -28,7 +28,7 @@ docker-frontend:
 	docker-compose up --build frontend
 
 docker-ingest:
-	docker-compose --profile ingestion up --build ingestion
+	docker-compose --profile ingestion up --build qdrant ingestion 
 
 docker-db:
 	docker-compose up qdrant

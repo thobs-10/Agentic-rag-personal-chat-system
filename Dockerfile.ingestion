@@ -4,6 +4,7 @@ WORKDIR /app
 
 # Copy dependency files
 COPY pyproject.toml /app/
+COPY README.md /app/
 
 # Copy source code
 COPY src/ /app/src/
@@ -16,4 +17,5 @@ RUN pip install --no-cache-dir --upgrade pip && \
 RUN mkdir -p /app/data
 
 # Default command - can be overridden in docker-compose
-CMD ["python", "src/agentic_rag_personal_chat_system/ingestion/src/component/run_ingestion.py"]
+# CMD ["python", "src/agentic_rag_personal_chat_system/ingestion/src/component/run_ingestion.py"]
+CMD ["tail", "-f", "/dev/null"]
