@@ -36,6 +36,7 @@ dependencies = [
     "langchain-community>=0.3.29",
     "omegaconf>=2.3.0",
     "fastapi[standard]>=0.115.14",
+    "numpy>=2.2.6",
 ]
 
 [tool.uv.build-backend]
@@ -64,7 +65,7 @@ lint.ignore = ["E501"]
 known-first-party = ["src"]
 
 [tool.bandit]
-exclude_dirs = ["src/tests", "docs", "build", "dist", "venv", ".venv"]
+exclude_dirs = ["tests/", "docs", "build", "dist", "venv", ".venv"]
 skips = ["B101"]
 
 [tool.mypy]

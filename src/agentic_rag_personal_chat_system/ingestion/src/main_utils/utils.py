@@ -1,7 +1,7 @@
-from typing import Any, List, Optional, Dict, Union
+from typing import Any, Dict, List, Optional, Union
 
-from loguru import logger
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from loguru import logger
 
 
 def extract_text_from_attribute(page: Any, attr_name: str) -> Optional[str]:
@@ -20,7 +20,8 @@ def extract_text_from_attribute(page: Any, attr_name: str) -> Optional[str]:
     try:
         attr = getattr(page, attr_name)
         result = attr() if callable(attr) else attr
-
+        if isinstance(result, int):
+            return None
         if isinstance(result, str):
             text = result.strip()
             return text if text and not text.startswith("<") else None
@@ -53,6 +54,8 @@ def get_document_pages(result: Any) -> Union[List[Any], Any]:
             return pages
         if isinstance(pages, str):
             return [pages]
+        if pages is not None and hasattr(pages, "pages"):
+            return pages.pages
         return None
     # If result is an object
     if hasattr(result, "pages"):
