@@ -41,6 +41,7 @@ services:
     restart: unless-stopped
     depends_on:
       - qdrant
+      - ollama
 
   ingestion:
     build:
