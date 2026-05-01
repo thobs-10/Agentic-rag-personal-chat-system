@@ -17,5 +17,5 @@ RUN pip install --no-cache-dir --upgrade pip && \
 RUN mkdir -p /app/data
 
 # Default command - can be overridden in docker-compose
-# CMD ["python", "src/agentic_rag_personal_chat_system/ingestion/src/component/run_ingestion.py"]
-CMD ["tail", "-f", "/dev/null"]
+CMD ["python", "src/agentic_rag_personal_chat_system/ingestion/src/component/run_ingestion.py"]
+# CMD ["tail", "-f", "/dev/null"]
