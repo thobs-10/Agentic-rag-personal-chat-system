@@ -10,8 +10,13 @@ from loguru import logger
 from sentence_transformers import SentenceTransformer
 
 # Import the configuration system
-from agentic_rag_personal_chat_system.configs.config_factory import AppConfig, ConfigFactory
-from agentic_rag_personal_chat_system.ingestion.src.component.ingestion_steps import IngestionSteps
+from agentic_rag_personal_chat_system.configs.config_factory import (
+    AppConfig,
+    ConfigFactory,
+)
+from agentic_rag_personal_chat_system.ingestion.src.component.ingestion_steps import (
+    IngestionSteps,
+)
 from agentic_rag_personal_chat_system.ingestion.src.component.qdrant_db_client import (
     QdrantDBClient,
 )
@@ -39,7 +44,9 @@ class IngestionPipeline:
     def _setup_pipeline(self) -> None:
         """Setup pipeline components based on configuration."""
         # Initialize model
-        self.model = SentenceTransformer(self.config.model.name, device=self.config.model.device)
+        self.model = SentenceTransformer(
+            self.config.model.name, device=self.config.model.device
+        )
 
         # Initialize database client
         self.db_client = QdrantDBClient()
@@ -84,7 +91,9 @@ class IngestionPipeline:
             collection_name = collection_config.name
             data_dir = collection_config.data_dir
 
-            logger.info(f"Processing collection: {collection_name} from directory: {data_dir}")
+            logger.info(
+                f"Processing collection: {collection_name} from directory: {data_dir}"
+            )
 
             try:
                 pdf_paths = get_pdf_files(data_dir)
@@ -94,7 +103,9 @@ class IngestionPipeline:
                     )
                     continue
 
-                logger.info(f"Found {len(pdf_paths)} PDF files for collection {collection_name}")
+                logger.info(
+                    f"Found {len(pdf_paths)} PDF files for collection {collection_name}"
+                )
                 self._run_single_collection(collection_name, pdf_paths)
 
             except Exception as e:
@@ -121,19 +132,25 @@ class IngestionPipeline:
         )
         return chunks
 
-    def _run_single_collection(self, collection_name: str, file_paths: List[str]) -> None:
+    def _run_single_collection(
+        self, collection_name: str, file_paths: List[str]
+    ) -> None:
         """Run ingestion pipeline for a single collection.
 
         Args:
             collection_name: Name of the collection to process
             file_paths: List of PDF file paths to process
         """
-        logger.info(f"Starting document ingestion pipeline for collection: {collection_name}...")
+        logger.info(
+            f"Starting document ingestion pipeline for collection: {collection_name}..."
+        )
         try:
             if collection_name and file_paths:
                 # 1. Load documents using configured strategy
                 docs = self.strategy.load_documents(file_paths)
-                logger.debug(f"Loaded {len(docs)} documents for collection {collection_name}")
+                logger.debug(
+                    f"Loaded {len(docs)} documents for collection {collection_name}"
+                )
 
                 # 2. Process documents: extract text and create chunks
                 chunks = self._process_documents(docs, file_paths, collection_name)
@@ -144,8 +161,12 @@ class IngestionPipeline:
                     logger.info(f"Recreated collection: {collection_name}")
 
                 self.ingestion_steps.create_collection(collection_name)
-                embeddings_and_metadata = self.ingestion_steps.generate_embeddings(chunks)
-                self.ingestion_steps.insert_into_qdrant(collection_name, embeddings_and_metadata)
+                embeddings_and_metadata = self.ingestion_steps.generate_embeddings(
+                    chunks
+                )
+                self.ingestion_steps.insert_into_qdrant(
+                    collection_name, embeddings_and_metadata
+                )
 
                 logger.info(
                     f"Document ingestion pipeline completed successfully for collection {collection_name}"
@@ -202,7 +223,9 @@ def validate_config(config: AppConfig) -> bool:
             logger.error("Collection name is not configured.")
             return False
         if not collection.data_dir:
-            logger.error(f"Data directory not configured for collection {collection.name}")
+            logger.error(
+                f"Data directory not configured for collection {collection.name}"
+            )
             return False
     if not config.model.name:
         logger.error("Model name is not configured.")
@@ -229,5 +252,7 @@ def main(config_path: Optional[Path] = None) -> None:
 
 
 if __name__ == "__main__":
-    default_config_path = Path(__file__).parent.parent.parent.parent.parent.parent / "config.yaml"
+    default_config_path = (
+        Path(__file__).parent.parent.parent.parent.parent.parent / "config.yaml"
+    )
     main(default_config_path)

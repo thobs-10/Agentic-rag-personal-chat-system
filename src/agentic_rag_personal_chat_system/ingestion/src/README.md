@@ -27,7 +27,6 @@ The system maintains separate collections for each agent:
 - **Technical Collection** (`technical_collection`): Contains technical documents, programming guides, API docs
   - Data directory: `data/technical/`
   - Used by: Technical Assistant
-
 - **Personal Collection** (`personal_collection`): Contains personal documents, notes, leases, general knowledge
   - Data directory: `data/personal/`
   - Used by: Personal Assistant
