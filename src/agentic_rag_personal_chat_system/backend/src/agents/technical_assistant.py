@@ -6,7 +6,7 @@ from typing import Any, Dict
 
 from loguru import logger
 
-from src.agentic_rag_personal_chat_system.backend.src.agents.base_agent import BaseAgent
+from agentic_rag_personal_chat_system.backend.src.agents.base_agent import BaseAgent
 
 
 class TechnicalAssistant(BaseAgent):
@@ -14,7 +14,7 @@ class TechnicalAssistant(BaseAgent):
 
     def __init__(
         self,
-        model_name: str = "gpt-3.5-turbo",
+        model_name: str = "llama3.2:1b",
     ):
         """
         Initialize the technical assistant.
@@ -23,16 +23,16 @@ class TechnicalAssistant(BaseAgent):
             model_name: Name of the LLM model to use
         """
         super().__init__(
-            collection_name="personal_collection",
+            collection_name="technical_collection",
             model_name=model_name,
             temperature=0.3,  # Slightly higher temperature for more natural responses
             provider="ollama",
-            top_k=3,
+            top_k=1,
         )
 
     def _get_system_prompt(self) -> str:
         """Return the system prompt for the technical assistant."""
-        return """You are a highly knowledgeable Technical Assistant specializing in programming, software development, 
+        return """You are a highly knowledgeable Technical Assistant specializing in programming, software development,
         data science, and technical topics. Your primary goal is to provide accurate, clear, and helpful technical information.
 
         Guidelines:
