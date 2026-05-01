@@ -80,15 +80,15 @@ class Retriever:
 
             # Search the vector DB
             search_results = self.qdrant_client.qdrant_client.search(
-                collection_name=self.collection_name,
-                query_vector=query_embedding,
-                limit=self.top_k
+                collection_name=self.collection_name, query_vector=query_embedding, limit=self.top_k
             )
 
             # Format results
             formatted_results = self._format_search_results(search_results)
 
-            logger.info(f"Retrieved {len(formatted_results)} documents from '{self.collection_name}'")
+            logger.info(
+                f"Retrieved {len(formatted_results)} documents from '{self.collection_name}'"
+            )
             return formatted_results
 
         except Exception as e:
