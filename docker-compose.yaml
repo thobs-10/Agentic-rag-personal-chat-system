@@ -62,6 +62,8 @@ services:
       - qdrant
     profiles:
       - ingestion # Only run when explicitly requested
+    # run the ingestion script when the container starts
+    # command: ["python", "src/ingest.py"]
 
 networks:
   app-network:
@@ -69,6 +71,8 @@ networks:
 
 volumes:
   qdrant_data:
+    driver: local
+  ollama_data:
     driver: local
   ingestion_data:
     driver: local
