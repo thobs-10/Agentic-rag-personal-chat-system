@@ -40,7 +40,7 @@ class Retriever:
             logger.error(f"Failed to initialize retriever: {e}")
             raise RuntimeError(f"Retriever initialization failed: {e}") from e
 
-    def _get_query_embedding(self, query: str) -> List[float]:
+    def _get_query_embedding(self, query: str) -> Any:
         """
         Generate embedding for the query.
 
