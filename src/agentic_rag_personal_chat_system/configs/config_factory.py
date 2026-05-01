@@ -1,5 +1,6 @@
 """This module defines a configuration factory using OmegaConf to load and manage application settings from the root config yaml file."""
 
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional, cast
@@ -25,10 +26,12 @@ class CollectionConfig:
 @dataclass
 class DatabaseConfig:
     url: str = "http://localhost:6333"
-    collections: list[CollectionConfig] = field(default_factory=lambda: [
-        CollectionConfig(name="technical_collection", data_dir="data/technical"),
-        CollectionConfig(name="personal_collection", data_dir="data/personal")
-    ])
+    collections: list[CollectionConfig] = field(
+        default_factory=lambda: [
+            CollectionConfig(name="technical_collection", data_dir="data/technical"),
+            CollectionConfig(name="personal_collection", data_dir="data/personal"),
+        ]
+    )
     recreate_collection: bool = False
     distance: str = "cosine"
 
@@ -54,8 +57,17 @@ class LoggingConfig:
 
 @dataclass
 class EnvironmentConfig:
-    zenml_server: str = "http://127.0.0.1:8080"
-    temp_dir: str = "/tmp/ingestion"
+    zenml_server: str = "http://127.0.0.1:8080"  # nosec B104
+    temp_dir: str = field(default_factory=lambda: str(Path(tempfile.gettempdir()) / "ingestion"))
+
+
+@dataclass
+class LLMConfig:
+    model_name: str = "Qwen/Qwen3-Coder-30B-A3B-Instruct"
+    temperature: float = 0.1
+    use_local: bool = True
+    device: str = "auto"
+    max_tokens: int = 2048
 
 
 @dataclass
@@ -66,6 +78,7 @@ class AppConfig:
     text: TextConfig = field(default_factory=TextConfig)
     logging: LoggingConfig = field(default_factory=LoggingConfig)
     environment: EnvironmentConfig = field(default_factory=EnvironmentConfig)
+    llm: LLMConfig = field(default_factory=LLMConfig)
 
 
 class ConfigFactory:

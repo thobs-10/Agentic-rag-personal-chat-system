@@ -29,7 +29,6 @@ dependencies = [
     "langchain-text-splitters>=0.3.8",
     "pydantic>=2.9.0,<2.12.0",
     "cryptography>=41.0.0",
-    "pypdf>=3.17.0",
     "pypdf>=6.0.0",
     "langgraph>=0.6.7",
     "langchain>=0.3.27",
@@ -61,8 +60,8 @@ line-length = 100
 lint.select = ["E", "F", "W", "I", "C", "B"]
 lint.ignore = ["E501"]
 
-[tool.lint.isort]
-known-first-party = ["src"]
+[tool.ruff.lint.isort]
+known-first-party = ["agentic_rag_personal_chat_system"]
 
 [tool.bandit]
 exclude_dirs = ["tests/", "docs", "build", "dist", "venv", ".venv"]

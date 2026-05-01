@@ -2,14 +2,15 @@
 Configuration settings for the backend services.
 """
 
-from pydantic import BaseModel, Field
-from typing import Dict, List, Optional
+from typing import List
+
+from pydantic import BaseModel
 
 
 class APIConfig(BaseModel):
     """API server configuration."""
 
-    host: str = "0.0.0.0"
+    host: str = "0.0.0.0"  # nosec B104 - intentional bind-all for containerised deployment
     port: int = 8000
     debug: bool = False
     reload: bool = True
@@ -52,7 +53,7 @@ class AgentConfig(BaseModel):
     max_retries: int = 2
     max_iterations: int = 5
     memory_enabled: bool = True
-    retrieval_top_k: int = 5
+    retrieval_top_k: int = 1
 
 
 class BackendConfig(BaseModel):

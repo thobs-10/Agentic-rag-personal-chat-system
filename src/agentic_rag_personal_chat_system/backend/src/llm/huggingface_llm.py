@@ -3,38 +3,58 @@ LLM integration using Hugging Face's/Ollama Inference API.
 """
 
 import os
-import requests
 from typing import Any, List, Optional
 
+import requests
 from huggingface_hub import InferenceClient
 from langchain.callbacks.manager import AsyncCallbackManagerForLLMRun, CallbackManagerForLLMRun
 from langchain.llms.base import LLM
 from loguru import logger
 
-from src.agentic_rag_personal_chat_system.backend.src.config.llm_config import (
+from agentic_rag_personal_chat_system.backend.src.config.llm_config import (
     HuggingFaceInferenceLLMConfig,
     OllamainferenceLLMConfig,
 )
 
 
 class OllamaLLMInference(LLM):
+    model_name: str = "llama3.2:1b"
+    temperature: float = 0.1
+    provider: str = "ollama"
+    top_p: float = 0.95
+    max_tokens: int = 4096
+    base_url: str = "http://localhost:11434"
+
     def __init__(
         self,
-        config: Optional[OllamainferenceLLMConfig] = None,
+        model_name: Optional[str] = None,
         temperature: Optional[float] = None,
+        provider: Optional[str] = None,
+        top_p: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+        base_url: Optional[str] = None,
         **kwargs,
-    ):
+    ) -> None:
+
         super().__init__(**kwargs)
-        if config is None:
+        if model_name is None:
             config = OllamainferenceLLMConfig(
-                model_name="llama3.2:3b",
+                model_name="llama3.2:1b",
                 temperature=temperature if temperature is not None else 0.1,
             )
-        self.model_name = config.model_name
-        self.temperature = config.temperature
-        self.top_p = config.top_p
-        self.max_tokens = config.max_tokens
-        self.base_url = config.base_url
+            self.model_name = config.model_name
+            self.temperature = config.temperature
+            self.provider = config.provider
+            self.top_p = config.top_p
+            self.max_tokens = config.max_tokens
+            self.base_url = config.base_url
+        else:
+            self.model_name = model_name
+            self.temperature = temperature if temperature is not None else 0.1
+            self.provider = provider if provider is not None else "ollama"
+            self.top_p = top_p if top_p is not None else 0.95
+            self.max_tokens = max_tokens if max_tokens is not None else 4096
+            self.base_url = base_url if base_url is not None else "http://localhost:11434"
 
     @property
     def _llm_type(self) -> str:
@@ -46,7 +66,7 @@ class OllamaLLMInference(LLM):
         stop: Optional[List[str]] = None,
         run_manager: Optional[CallbackManagerForLLMRun] = None,
         **kwargs: Any,
-    ) -> str:
+    ) -> Any:
         try:
             payload = {
                 "model": self.model_name,
@@ -61,7 +81,7 @@ class OllamaLLMInference(LLM):
             response = requests.post(
                 f"{self.base_url}/api/generate",
                 json=payload,
-                timeout=30,
+                timeout=300,  # 5 minutes for CPU inference
             )
             response.raise_for_status()
             data = response.json()
@@ -77,16 +97,23 @@ class OllamaLLMInference(LLM):
         stop: Optional[List[str]] = None,
         run_manager: Optional[AsyncCallbackManagerForLLMRun] = None,
         **kwargs: Any,
-    ) -> str:
+    ) -> Any:
         return self._call(prompt, stop, None, **kwargs)
 
 
-def get_ollama_llm(model_name: str = "llama3.2:3b", temperature: float = 0.1) -> OllamaLLMInference:
+def get_ollama_llm(
+    model_name: str = "llama3.2:1b",
+    temperature: float = 0.1,
+    provider: str = "ollama",
+    top_p: float = 0.95,
+    max_tokens: int = 4096,
+    base_url: str = "http://localhost:11434",
+) -> OllamaLLMInference:
     """
     Get an instance of the Ollama LLM with the specified model and temperature.
 
     Args:
-        model_name: The name of the model to use
+        config: Configuration object for Ollama LLM
         temperature: The temperature to use for generation
 
     Returns:
@@ -95,6 +122,10 @@ def get_ollama_llm(model_name: str = "llama3.2:3b", temperature: float = 0.1) ->
     return OllamaLLMInference(
         model_name=model_name,
         temperature=temperature,
+        provider=provider,
+        top_p=top_p,
+        max_tokens=max_tokens,
+        base_url=base_url,
     )
 
 
@@ -106,8 +137,8 @@ class HuggingFaceInferenceLLM(LLM):
         config: Optional[HuggingFaceInferenceLLMConfig] = None,
         model_name: Optional[str] = None,
         temperature: Optional[float] = None,
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> None:
         """Initialize the HuggingFace LLM.
 
         Args:
@@ -159,7 +190,7 @@ class HuggingFaceInferenceLLM(LLM):
         stop: Optional[List[str]] = None,
         run_manager: Optional[CallbackManagerForLLMRun] = None,
         **kwargs: Any,
-    ) -> str:
+    ) -> Any:
         """Call the Hugging Face Inference API."""
         try:
             # Create client
@@ -194,7 +225,7 @@ class HuggingFaceInferenceLLM(LLM):
         stop: Optional[List[str]] = None,
         run_manager: Optional[AsyncCallbackManagerForLLMRun] = None,
         **kwargs: Any,
-    ) -> str:
+    ) -> Any:
         """Async version of _call for better LangGraph compatibility."""
         # For now, we'll use the sync version but wrap it
         # In production, you might want to use aiohttp or similar for true async
@@ -202,9 +233,12 @@ class HuggingFaceInferenceLLM(LLM):
 
 
 def get_llm(
-    model_name: str = "llama3.2:3b",
+    model_name: str = "llama3.2:1b",
     temperature: float = 0.1,
     provider: str = "ollama",
+    top_p: float = 0.95,
+    max_tokens: int = 4096,
+    base_url: str = "http://localhost:11434",
 ) -> LLM:
     """
     Get an instance of the LLM with the specified model, temperature, and provider.
@@ -218,13 +252,11 @@ def get_llm(
         An instance of the appropriate LLM class
     """
     if provider.lower() == "ollama":
-        return get_ollama_llm(model_name=model_name, temperature=temperature)
-    elif provider.lower() == "huggingface":
+        return get_ollama_llm(model_name, temperature, provider, top_p, max_tokens, base_url)
+    elif provider.lower() == "novita":
         return HuggingFaceInferenceLLM(
             model_name=model_name,
             temperature=temperature,
         )
     else:
-        raise ValueError(
-            f"Unsupported LLM provider: {provider}. Supported: 'ollama', 'huggingface'"
-        )
+        raise ValueError(f"Unsupported LLM provider: {provider}. Supported: 'ollama', 'novita'")

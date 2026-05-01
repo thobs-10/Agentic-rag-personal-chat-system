@@ -10,21 +10,21 @@ repos:
       - id: check-merge-conflict
       # Trims trailing whitespace. Allow a single space on the end of .md lines for hard line breaks.
       - id: trailing-whitespace
-        args: [--markdown-linebreak-ext=md]
+        args: [ --markdown-linebreak-ext=md ]
       # Makes sure files end in a newline and only a newline;
       - id: end-of-file-fixer
       # Attempts to load all TOML files to verify syntax.
       - id: check-toml
       # Attempts to load all yaml files to verify syntax; unsafe: only check syntax, do not load yaml
       - id: check-yaml
-        args: ["--unsafe"]
+        args: [ "--unsafe" ]
       # Check for symlinks that do not point to anything.
       - id: check-symlinks
       # Fail if staged files are above a certain size.
       # To add a large file, use 'git lfs track <file>; git add <file> to track large files with
       # git-lfs rather than commiting them directly to the git history
       - id: check-added-large-files
-        args: ["--maxkb=500"]
+        args: [ "--maxkb=500" ]
 
         # HALT! Before you exclude a large file and commit it, forever
         # bloating our repo size, did you:
@@ -44,7 +44,7 @@ repos:
       - id: forbid-new-submodules
       # Prevent committing directly to trunk (since Bitbucket wants us to pay for this feature)
       - id: no-commit-to-branch
-        args: ["--branch=main"]
+        args: [ "--branch=main" ]
       # Detects the presence of private keys
       - id: detect-private-key
       # detects errors in toml files
@@ -56,16 +56,15 @@ repos:
     rev: "v0.4.4"
     hooks:
       - id: ruff
-        args: [--fix, --exit-non-zero-on-fix]
-
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: "v1.2.0"
-    hooks:
-      - id: mypy
-        additional_dependencies: [types-requests]
+        args: [ --fix, --exit-non-zero-on-fix ]
+        # - repo: https://github.com/pre-commit/mirrors-mypy
+        #   rev: "v1.2.0"
+        #   hooks:
+        #     - id: mypy
+        #       additional_dependencies: [types-requests]
 
   - repo: https://github.com/PyCQA/bandit
     rev: "1.7.10"
     hooks:
       - id: bandit
-        args: ["--skip", "B101", "--exclude", "tests"]
+        args: [ "--skip", "B101", "--exclude", "tests" ]

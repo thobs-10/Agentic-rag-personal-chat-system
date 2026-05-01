@@ -7,7 +7,7 @@ from typing import Any, Dict, List
 from loguru import logger
 from sentence_transformers import SentenceTransformer
 
-from src.agentic_rag_personal_chat_system.ingestion.src.component.qdrant_db_client import (
+from agentic_rag_personal_chat_system.ingestion.src.component.qdrant_db_client import (
     QdrantDBClient,
 )
 
@@ -15,7 +15,9 @@ from src.agentic_rag_personal_chat_system.ingestion.src.component.qdrant_db_clie
 class Retriever:
     """Class for retrieving relevant documents from Qdrant."""
 
-    def __init__(self, collection_name: str, top_k: int = 5, embedding_model_name: str = "all-MiniLM-L6-v2"):
+    def __init__(
+        self, collection_name: str, top_k: int = 1, embedding_model_name: str = "all-MiniLM-L6-v2"
+    ):
         """
         Initialize the retriever.
 
@@ -31,12 +33,14 @@ class Retriever:
         try:
             self.qdrant_client = QdrantDBClient()
             self.embedding_model = SentenceTransformer(embedding_model_name)
-            logger.info(f"Initialized retriever for collection '{collection_name}' with model '{embedding_model_name}'")
+            logger.info(
+                f"Initialized retriever for collection '{collection_name}' with model '{embedding_model_name}'"
+            )
         except Exception as e:
             logger.error(f"Failed to initialize retriever: {e}")
             raise RuntimeError(f"Retriever initialization failed: {e}") from e
 
-    def _get_query_embedding(self, query: str) -> List[float]:
+    def _get_query_embedding(self, query: str) -> Any:
         """
         Generate embedding for the query.
 
@@ -76,33 +80,35 @@ class Retriever:
 
             # Search the vector DB
             search_results = self.qdrant_client.qdrant_client.search(
-                collection_name=self.collection_name,
-                query_vector=query_embedding,
-                limit=self.top_k
+                collection_name=self.collection_name, query_vector=query_embedding, limit=self.top_k
             )
 
             # Format results
             formatted_results = self._format_search_results(search_results)
 
-            logger.info(f"Retrieved {len(formatted_results)} documents from '{self.collection_name}'")
+            logger.info(
+                f"Retrieved {len(formatted_results)} documents from '{self.collection_name}'"
+            )
             return formatted_results
 
         except Exception as e:
             logger.error(f"Error retrieving from vector DB: {e}")
             return []  # Return empty results on error
 
-    def _format_search_results(self, search_results) -> List[Dict[str, Any]]:
+    def _format_search_results(self, search_results: Any) -> List[Dict[str, Any]]:
         """Format search results into a consistent structure."""
         formatted_results = []
 
         for result in search_results:
             payload = result.payload or {}
 
-            formatted_results.append({
-                "text": payload.get("text", ""),
-                "source": payload.get("source", "unknown"),
-                "relevance": float(result.score) if result.score is not None else 0.0,
-                "metadata": {k: v for k, v in payload.items() if k not in ["text", "source"]},
-            })
+            formatted_results.append(
+                {
+                    "text": payload.get("text", ""),
+                    "source": payload.get("source", "unknown"),
+                    "relevance": float(result.score) if result.score is not None else 0.0,
+                    "metadata": {k: v for k, v in payload.items() if k not in ["text", "source"]},
+                }
+            )
 
         return formatted_results

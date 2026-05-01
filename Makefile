@@ -4,7 +4,7 @@ setup:
 	pip install -e .
 
 test:
-	python -m pytest tests/
+	python -m pytest -n auto -v tests/
 
 lint:
 	pre-commit run --all-files
@@ -22,16 +22,22 @@ docker-all:
 	docker-compose up --build
 
 docker-backend:
-	docker-compose up --build backend qdrant
+	docker-compose up --build backend qdrant ollama
 
 docker-frontend:
 	docker-compose up --build frontend
 
 docker-ingest:
-	docker-compose --profile ingestion up --build qdrant ingestion 
+	docker-compose --profile ingestion up --build -d qdrant ingestion
 
 docker-db:
 	docker-compose up qdrant
+
+docker-ollama:
+	docker-compose up  -d ollama
+
+docker-pull-ollama-model:
+	docker exec -it ollama ollama pull llama3.2:1b
 
 docker-stop:
 	docker-compose down
@@ -41,6 +47,9 @@ docker-clean:
 
 docker-logs:
 	docker-compose logs -f
+
+docker-remove-orphaned-networks:
+	docker network prune -f
 
 docker-logs-backend:
 	docker-compose logs -f backend

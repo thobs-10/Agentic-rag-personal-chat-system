@@ -1,6 +1,4 @@
-from langchain.llms import LLM
-from pydantic import BaseModel, Field
-from typing import Optional
+from pydantic import BaseModel
 
 
 class HuggingFaceInferenceLLMConfig(BaseModel):
@@ -16,7 +14,8 @@ class HuggingFaceInferenceLLMConfig(BaseModel):
 class OllamainferenceLLMConfig(BaseModel):
     """LLM wrapper for Ollama's Inference API."""
 
-    model_name: str = "llama3.2:3b"
+    provider: str = "ollama"
+    model_name: str = "llama3.2:1b"
     temperature: float = 0.1
     top_p: float = 0.95
     max_tokens: int = 4096
