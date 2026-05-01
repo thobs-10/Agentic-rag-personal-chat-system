@@ -2,7 +2,8 @@
 Models for API requests and responses.
 """
 
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional
+
 from pydantic import BaseModel, Field
 
 
