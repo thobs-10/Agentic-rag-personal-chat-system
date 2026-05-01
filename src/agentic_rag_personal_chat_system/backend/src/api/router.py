@@ -2,18 +2,17 @@
 API router for handling chat queries.
 """
 
-from loguru import logger
-from fastapi import APIRouter, FastAPI, HTTPException, Depends
+from fastapi import APIRouter, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from typing import Callable
+from loguru import logger
 
 from agentic_rag_personal_chat_system.backend.src.api.models import (
+    ErrorResponse,
     QueryRequest,
     QueryResponse,
-    ErrorResponse,
 )
 from agentic_rag_personal_chat_system.backend.src.config.backend_config import APIConfig
-from agentic_rag_personal_chat_system.backend.src.graph import get_graph_instance, AgentState
+from agentic_rag_personal_chat_system.backend.src.graph import AgentState, get_graph_instance
 
 # Create FastAPI app
 app = FastAPI(
@@ -33,19 +32,6 @@ app.add_middleware(
 
 # Create router
 api_router = APIRouter()
-
-
-# Dependency to get the LangGraph instance (to be implemented)
-# async def get_lang_graph() -> callable():
-#     """Dependency for getting the LangGraph instance."""
-#     # This will be implemented when we create the LangGraph
-#     # For now, it's a placeholder
-#     try:
-#         graph = get_graph_instance()
-#     except Exception as e:
-#         logger.error(f"Error getting graph instance: {e}")
-#         raise HTTPException(status_code=500, detail="Internal server error")
-#     return graph
 
 
 @api_router.post(
@@ -72,21 +58,12 @@ async def process_query(
     try:
         logger.info(f"Received query: {request.query}")
         graph = get_graph_instance()
-        # Prepare inputs for the graph
-        # Prepare input state
         input_state: AgentState = {
             "query": request.query,
             "context": request.context or {},
             "mode": request.mode,
         }
-        # inputs = {
-        #     "query": request.query,
-        #     "context": request.context or {},
-        #     "mode": request.mode,
-        # }
 
-        # Process the query through the graph
-        # This will be implemented later, but this is how we'll interface with it
         result = await graph.ainvoke(input_state)
 
         logger.info(f"Query processed by {result.get('agent_type', 'unknown')} agent")
@@ -101,14 +78,13 @@ async def process_query(
 
     except ValueError as e:
         logger.error(f"Value error processing query: {e}")
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
     except Exception as e:
         logger.error(f"Error processing query: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
-# Register the router
 app.include_router(api_router, prefix="/api")
 
 
