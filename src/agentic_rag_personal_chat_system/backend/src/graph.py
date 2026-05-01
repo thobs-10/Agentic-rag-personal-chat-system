@@ -4,19 +4,21 @@ LangGraph implementation for orchestrating the multi-agent system.
 
 from typing import Any, Dict, List, Optional, TypedDict
 
-from langgraph.checkpoint.memory import MemorySaver
+from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from loguru import logger
 
-from src.agentic_rag_personal_chat_system.backend.src.agents.personal_assistant import (
+from agentic_rag_personal_chat_system.backend.src.agents.personal_assistant import (
     run_personal_assistant,
 )
-from src.agentic_rag_personal_chat_system.backend.src.agents.technical_assistant import (
+from agentic_rag_personal_chat_system.backend.src.agents.technical_assistant import (
     run_technical_assistant,
 )
-from src.agentic_rag_personal_chat_system.backend.src.config.backend_config import config
-from src.agentic_rag_personal_chat_system.backend.src.llm.huggingface_llm import get_llm
+from agentic_rag_personal_chat_system.backend.src.config.llm_config import (
+    OllamainferenceLLMConfig,
+)
+from agentic_rag_personal_chat_system.backend.src.llm.huggingface_llm import get_llm
 
 
 # Define our state schema as TypedDict for LangGraph compatibility
@@ -40,9 +42,12 @@ class AgentState(AgentStateRequired, total=False):
 async def classify_query(query: str) -> str:
     """Simple query classification."""
     llm = get_llm(
-        model_name=config.llm.model,
-        temperature=config.llm.temperature,
-        provider=config.llm.provider,
+        model_name=OllamainferenceLLMConfig().model_name,
+        temperature=OllamainferenceLLMConfig().temperature,
+        provider=OllamainferenceLLMConfig().provider,
+        top_p=OllamainferenceLLMConfig().top_p,
+        max_tokens=OllamainferenceLLMConfig().max_tokens,
+        base_url=OllamainferenceLLMConfig().base_url,
     )
 
     prompt = f"""
@@ -118,17 +123,17 @@ def create_system_graph() -> CompiledStateGraph:
     workflow.add_edge("process", END)
 
     # Compile with memory
-    memory = MemorySaver()
+    memory = InMemorySaver()
     workflow = workflow.compile(checkpointer=memory)
 
     return workflow
 
 
 # Create a singleton graph instance
-_graph_instance = None
+_graph_instance: Optional[CompiledStateGraph] = None
 
 
-def get_graph_instance():
+def get_graph_instance() -> CompiledStateGraph:
     """Get the singleton graph instance."""
     global _graph_instance
     if _graph_instance is None:
@@ -143,7 +148,7 @@ def get_graph_instance():
 if __name__ == "__main__":
     import asyncio
 
-    async def test_graph():
+    async def test_graph() -> None:
         graph = get_graph_instance()
 
         # Test with a technical query
@@ -152,17 +157,21 @@ if __name__ == "__main__":
                 "query": "How do I fix a bug in my Python code?",
                 "context": {},
                 "mode": "auto",
-            }
+                "thread_id": "test_thread_1",
+            },
+            config={"configurable": {"thread_id": "test_thread_1"}},
         )
         print("Technical query result:", result)
 
         # Test with a personal query
         result = await graph.ainvoke(
             {
-                "query": "What's the weather like today?",
+                "query": "What lease agreement did I sign?",
                 "context": {},
                 "mode": "auto",
-            }
+                "thread_id": "test_thread_2",
+            },
+            config={"configurable": {"thread_id": "test_thread_2"}},
         )
         print("Personal query result:", result)
 
