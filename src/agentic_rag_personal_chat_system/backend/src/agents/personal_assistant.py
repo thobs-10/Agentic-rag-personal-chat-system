@@ -6,13 +6,13 @@ from typing import Any, Dict
 
 from loguru import logger
 
-from src.agentic_rag_personal_chat_system.backend.src.agents.base_agent import BaseAgent
+from agentic_rag_personal_chat_system.backend.src.agents.base_agent import BaseAgent
 
 
 class PersonalAssistant(BaseAgent):
     """Personal assistant specializing in general knowledge and conversational topics."""
 
-    def __init__(self, model_name: str = "gpt-3.5-turbo"):
+    def __init__(self, model_name: str = "llama3.2:1b"):
         """
         Initialize the personal assistant.
 
@@ -24,13 +24,13 @@ class PersonalAssistant(BaseAgent):
             model_name=model_name,
             temperature=0.3,  # Slightly higher temperature for more natural responses
             provider="ollama",
-            top_k=3,
+            top_k=1,
         )
 
     def _get_system_prompt(self) -> str:
         """Return the system prompt for the personal assistant."""
         return """You are a helpful Personal Assistant focused on providing accurate information
-        and engaging conversation on general topics. You have access to personal documents 
+        and engaging conversation on general topics. You have access to personal documents
         and general knowledge.
 
         Guidelines:
