@@ -15,7 +15,9 @@ from agentic_rag_personal_chat_system.ingestion.src.component.qdrant_db_client i
 class Retriever:
     """Class for retrieving relevant documents from Qdrant."""
 
-    def __init__(self, collection_name: str, top_k: int = 5, embedding_model_name: str = "all-MiniLM-L6-v2"):
+    def __init__(
+        self, collection_name: str, top_k: int = 1, embedding_model_name: str = "all-MiniLM-L6-v2"
+    ):
         """
         Initialize the retriever.
 
@@ -31,7 +33,9 @@ class Retriever:
         try:
             self.qdrant_client = QdrantDBClient()
             self.embedding_model = SentenceTransformer(embedding_model_name)
-            logger.info(f"Initialized retriever for collection '{collection_name}' with model '{embedding_model_name}'")
+            logger.info(
+                f"Initialized retriever for collection '{collection_name}' with model '{embedding_model_name}'"
+            )
         except Exception as e:
             logger.error(f"Failed to initialize retriever: {e}")
             raise RuntimeError(f"Retriever initialization failed: {e}") from e
