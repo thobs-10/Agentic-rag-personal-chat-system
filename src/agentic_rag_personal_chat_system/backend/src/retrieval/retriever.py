@@ -7,7 +7,7 @@ from typing import Any, Dict, List
 from loguru import logger
 from sentence_transformers import SentenceTransformer
 
-from src.agentic_rag_personal_chat_system.ingestion.src.component.qdrant_db_client import (
+from agentic_rag_personal_chat_system.ingestion.src.component.qdrant_db_client import (
     QdrantDBClient,
 )
 
