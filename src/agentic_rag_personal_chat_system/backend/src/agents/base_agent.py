@@ -7,9 +7,9 @@ from typing import Any, Dict, List, Optional, TypedDict
 
 from loguru import logger
 
-from src.agentic_rag_personal_chat_system.backend.src.config.agent_config import AgentConfig
-from src.agentic_rag_personal_chat_system.backend.src.llm.huggingface_llm import get_llm
-from src.agentic_rag_personal_chat_system.backend.src.retrieval.retriever import Retriever
+from agentic_rag_personal_chat_system.backend.src.config.agent_config import AgentConfig
+from agentic_rag_personal_chat_system.backend.src.llm.huggingface_llm import get_llm
+from agentic_rag_personal_chat_system.backend.src.retrieval.retriever import Retriever
 
 
 class AgentResponse(TypedDict, total=False):
@@ -48,7 +48,7 @@ class BaseAgent(ABC):
         self.top_k = top_k
 
         # Initialize LLM using our custom implementation
-        self.llm = get_llm(
+        self.llm: Any = get_llm(
             self.model_name,
             self.temperature,
             self.provider,
@@ -140,7 +140,7 @@ class BaseAgent(ABC):
                     """
         return prompt.strip()
 
-    async def _generate_response(self, query: str, context: str) -> str:
+    async def _generate_response(self, query: str, context: str) -> Any:
         """
         Generate a response using the LLM.
 
