@@ -2,7 +2,7 @@
 
 import os
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict
 
 from dotenv import load_dotenv
 from loguru import logger
