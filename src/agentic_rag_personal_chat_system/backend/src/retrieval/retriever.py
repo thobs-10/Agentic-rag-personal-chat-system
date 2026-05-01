@@ -95,18 +95,20 @@ class Retriever:
             logger.error(f"Error retrieving from vector DB: {e}")
             return []  # Return empty results on error
 
-    def _format_search_results(self, search_results) -> List[Dict[str, Any]]:
+    def _format_search_results(self, search_results: Any) -> List[Dict[str, Any]]:
         """Format search results into a consistent structure."""
         formatted_results = []
 
         for result in search_results:
             payload = result.payload or {}
 
-            formatted_results.append({
-                "text": payload.get("text", ""),
-                "source": payload.get("source", "unknown"),
-                "relevance": float(result.score) if result.score is not None else 0.0,
-                "metadata": {k: v for k, v in payload.items() if k not in ["text", "source"]},
-            })
+            formatted_results.append(
+                {
+                    "text": payload.get("text", ""),
+                    "source": payload.get("source", "unknown"),
+                    "relevance": float(result.score) if result.score is not None else 0.0,
+                    "metadata": {k: v for k, v in payload.items() if k not in ["text", "source"]},
+                }
+            )
 
         return formatted_results
