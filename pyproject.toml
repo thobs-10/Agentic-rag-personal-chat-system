@@ -61,8 +61,8 @@ line-length = 100
 lint.select = ["E", "F", "W", "I", "C", "B"]
 lint.ignore = ["E501"]
 
-[tool.lint.isort]
-known-first-party = ["src"]
+[tool.ruff.lint.isort]
+known-first-party = ["agentic_rag_personal_chat_system"]
 
 [tool.bandit]
 exclude_dirs = ["tests/", "docs", "build", "dist", "venv", ".venv"]
