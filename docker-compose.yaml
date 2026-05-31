@@ -3,16 +3,22 @@ services:
     image: qdrant/qdrant:latest
     container_name: qdrant-db
     volumes:
-      - qdrant_data:/qdrant_db
+      - qdrant_data:/qdrant/storage
     ports:
       - "6333:6333"
       - "6334:6334"
     environment:
-      - QDRANT_SERVER_HOST=0.0.0.0
-      - QDRANT_SERVER_PORT=6333
+      - QDRANT__SERVICE__HOST=0.0.0.0
+      - QDRANT__SERVICE__HTTP_PORT=6333
     networks:
       - app-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/readyz"]
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 5
 
   ollama:
     image: ollama/ollama:latest
@@ -24,11 +30,17 @@ services:
     networks:
       - app-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 15s
+      timeout: 5s
+      start_period: 20s
+      retries: 5
 
   backend:
     build:
       context: .
-      dockerfile: Dockerfile.backend
+      dockerfile: src/agentic_rag_personal_chat_system/backend/Dockerfile
     container_name: agentic-rag-backend
     ports:
       - "8000:8000"
@@ -40,13 +52,31 @@ services:
       - app-network
     restart: unless-stopped
     depends_on:
-      - qdrant
-      - ollama
+      qdrant:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: .
+      dockerfile: src/agentic_rag_personal_chat_system/frontend/Dockerfile
+    container_name: agentic-rag-frontend
+    ports:
+      - "8001:8000"
+    environment:
+      - BACKEND_URL=http://backend:8000
+    networks:
+      - app-network
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
 
   ingestion:
     build:
       context: .
-      dockerfile: Dockerfile.ingestion
+      dockerfile: src/agentic_rag_personal_chat_system/ingestion/Dockerfile
     container_name: agentic-rag-ingestion
     volumes:
       - ./data/technical:/app/data/technical
@@ -57,13 +87,12 @@ services:
       - LOG_LEVEL=INFO
     networks:
       - app-network
-    restart: "no" # Run once and exit
+    restart: "no"
     depends_on:
-      - qdrant
+      qdrant:
+        condition: service_healthy
     profiles:
-      - ingestion # Only run when explicitly requested
-    # run the ingestion script when the container starts
-    # command: ["python", "src/ingest.py"]
+      - ingestion
 
 networks:
   app-network:
@@ -73,6 +102,4 @@ volumes:
   qdrant_data:
     driver: local
   ollama_data:
-    driver: local
-  ingestion_data:
     driver: local

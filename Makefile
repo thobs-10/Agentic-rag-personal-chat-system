@@ -1,7 +1,7 @@
 .PHONY: setup test lint clean run docker-all docker-backend docker-frontend docker-ingest docker-db docker-stop docker-clean docker-logs docker-logs-backend docker-logs-frontend docker-rebuild
 
 setup:
-	pip install -e .
+	uv sync --extra backend --extra ingestion --extra frontend --extra dev
 
 test:
 	python -m pytest -n auto -v tests/
@@ -19,43 +19,43 @@ run:
 
 # Docker Compose Commands
 docker-all:
-	docker-compose up --build
+	docker compose up --build
 
 docker-backend:
-	docker-compose up --build backend qdrant ollama
+	docker compose up --build backend qdrant ollama
 
 docker-frontend:
-	docker-compose up --build frontend
+	docker compose up --build frontend
 
 docker-ingest:
-	docker-compose --profile ingestion up --build -d qdrant ingestion
+	docker compose --profile ingestion up --build -d qdrant ingestion
 
 docker-db:
-	docker-compose up qdrant
+	docker compose up qdrant
 
 docker-ollama:
-	docker-compose up  -d ollama
+	docker compose up  -d ollama
 
 docker-pull-ollama-model:
 	docker exec -it ollama ollama pull llama3.2:1b
 
 docker-stop:
-	docker-compose down
+	docker compose down
 
 docker-clean:
-	docker-compose down -v
+	docker compose down -v
 
 docker-logs:
-	docker-compose logs -f
+	docker compose logs -f
 
 docker-remove-orphaned-networks:
 	docker network prune -f
 
 docker-logs-backend:
-	docker-compose logs -f backend
+	docker compose logs -f backend
 
 docker-logs-frontend:
-	docker-compose logs -f frontend
+	docker compose logs -f frontend
 
 docker-rebuild:
-	docker-compose build --no-cache
+	docker compose build --no-cache
