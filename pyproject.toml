@@ -67,6 +67,15 @@ known-first-party = ["agentic_rag_personal_chat_system"]
 exclude_dirs = ["tests/", "docs", "build", "dist", "venv", ".venv"]
 skips = ["B101"]
 
+[tool.pytest.ini_options]
+testpaths = [
+    "src/agentic_rag_personal_chat_system/ingestion/tests",
+    "src/agentic_rag_personal_chat_system/backend/tests",
+]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
 [tool.mypy]
 strict = true
 ignore_missing_imports = true

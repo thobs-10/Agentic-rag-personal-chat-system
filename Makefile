@@ -1,10 +1,16 @@
-.PHONY: setup test lint clean run docker-all docker-backend docker-frontend docker-ingest docker-db docker-stop docker-clean docker-logs docker-logs-backend docker-logs-frontend docker-rebuild
+.PHONY: setup test test-ingestion test-backend lint clean run docker-all docker-backend docker-frontend docker-ingest docker-db docker-stop docker-clean docker-logs docker-logs-backend docker-logs-frontend docker-rebuild
 
 setup:
 	pip install -e .
 
 test:
-	python -m pytest -n auto -v tests/
+	python -m pytest -n auto -v src/agentic_rag_personal_chat_system/ingestion/tests src/agentic_rag_personal_chat_system/backend/tests
+
+test-ingestion:
+	python -m pytest -n auto -v src/agentic_rag_personal_chat_system/ingestion/tests
+
+test-backend:
+	python -m pytest -n auto -v src/agentic_rag_personal_chat_system/backend/tests
 
 lint:
 	pre-commit run --all-files
