@@ -2,17 +2,30 @@
 API router for handling chat queries.
 """
 
+import json
+
 from fastapi import APIRouter, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from loguru import logger
 
+from agentic_rag_personal_chat_system.backend.src.agents.personal_assistant import (
+    PersonalAssistant,
+)
+from agentic_rag_personal_chat_system.backend.src.agents.technical_assistant import (
+    TechnicalAssistant,
+)
 from agentic_rag_personal_chat_system.backend.src.api.models import (
     ErrorResponse,
     QueryRequest,
     QueryResponse,
 )
 from agentic_rag_personal_chat_system.backend.src.config.backend_config import APIConfig
-from agentic_rag_personal_chat_system.backend.src.graph import AgentState, get_graph_instance
+from agentic_rag_personal_chat_system.backend.src.graph import (
+    AgentState,
+    classify_query,
+    get_graph_instance,
+)
 
 # Create FastAPI app
 app = FastAPI(
@@ -83,6 +96,38 @@ async def process_query(
     except Exception as e:
         logger.error(f"Error processing query: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@api_router.post("/query/stream")
+async def stream_query(request: QueryRequest):
+    """
+    Stream a response token-by-token using Server-Sent Events.
+
+    Events are newline-delimited JSON with a 'type' field:
+      - agent_type: which assistant was selected
+      - token:      a single text chunk from the LLM
+      - sources:    retrieved documents (sent after streaming is complete)
+      - error:      friendly error message
+    Terminated by: data: [DONE]
+    """
+
+    async def generate():
+        try:
+            mode = request.mode
+            agent_type = await classify_query(request.query) if mode == "auto" else mode
+            yield f"data: {json.dumps({'type': 'agent_type', 'content': agent_type})}\n\n"
+
+            agent = TechnicalAssistant() if agent_type == "technical" else PersonalAssistant()
+            async for event in agent.astream_query(request.query):
+                yield f"data: {json.dumps(event)}\n\n"
+
+        except Exception as e:
+            logger.error(f"Streaming error: {e}", exc_info=True)
+            yield f"data: {json.dumps({'type': 'error', 'content': 'An error occurred. Please try again.'})}\n\n"
+
+        yield "data: [DONE]\n\n"
+
+    return StreamingResponse(generate(), media_type="text/event-stream")
 
 
 app.include_router(api_router, prefix="/api")
