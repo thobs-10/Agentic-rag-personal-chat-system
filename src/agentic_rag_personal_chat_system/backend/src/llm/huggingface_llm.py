@@ -2,13 +2,16 @@
 LLM integration using Hugging Face's/Ollama Inference API.
 """
 
+import json
 import os
-from typing import Any, List, Optional
+from typing import Any, AsyncIterator, List, Optional
 
+import httpx
 import requests
 from huggingface_hub import InferenceClient
 from langchain.callbacks.manager import AsyncCallbackManagerForLLMRun, CallbackManagerForLLMRun
 from langchain.llms.base import LLM
+from langchain_core.outputs import GenerationChunk
 from loguru import logger
 
 from agentic_rag_personal_chat_system.backend.src.config.llm_config import (
@@ -23,7 +26,7 @@ class OllamaLLMInference(LLM):
     provider: str = "ollama"
     top_p: float = 0.95
     max_tokens: int = 4096
-    base_url: str = "http://localhost:11434"
+    base_url: str = os.getenv("OLLAMA_BASE_URL", "http://ollama:11434")
 
     def __init__(
         self,
@@ -54,7 +57,7 @@ class OllamaLLMInference(LLM):
             self.provider = provider if provider is not None else "ollama"
             self.top_p = top_p if top_p is not None else 0.95
             self.max_tokens = max_tokens if max_tokens is not None else 4096
-            self.base_url = base_url if base_url is not None else "http://localhost:11434"
+            self.base_url = base_url if base_url is not None else os.getenv("OLLAMA_BASE_URL", "http://ollama:11434")
 
     @property
     def _llm_type(self) -> str:
@@ -99,6 +102,43 @@ class OllamaLLMInference(LLM):
         **kwargs: Any,
     ) -> Any:
         return self._call(prompt, stop, None, **kwargs)
+
+    async def _astream(
+        self,
+        prompt: str,
+        stop: Optional[List[str]] = None,
+        run_manager: Optional[AsyncCallbackManagerForLLMRun] = None,
+        **kwargs: Any,
+    ) -> AsyncIterator[GenerationChunk]:
+        """Stream tokens from Ollama asynchronously."""
+        payload = {
+            "model": self.model_name,
+            "prompt": prompt,
+            "stream": True,
+            "options": {
+                "temperature": self.temperature,
+                "top_p": self.top_p,
+                "num_predict": self.max_tokens,
+            },
+        }
+        async with httpx.AsyncClient(timeout=300.0) as client:
+            async with client.stream(
+                "POST",
+                f"{self.base_url}/api/generate",
+                json=payload,
+            ) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if not line:
+                        continue
+                    data = json.loads(line)
+                    token = data.get("response", "")
+                    if token:
+                        if run_manager:
+                            await run_manager.on_llm_new_token(token)
+                        yield GenerationChunk(text=token)
+                    if data.get("done", False):
+                        break
 
 
 def get_ollama_llm(

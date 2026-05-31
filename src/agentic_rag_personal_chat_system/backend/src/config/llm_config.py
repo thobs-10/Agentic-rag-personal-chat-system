@@ -1,3 +1,5 @@
+import os
+
 from pydantic import BaseModel
 
 
@@ -19,4 +21,4 @@ class OllamainferenceLLMConfig(BaseModel):
     temperature: float = 0.1
     top_p: float = 0.95
     max_tokens: int = 4096
-    base_url: str = "http://localhost:11434"
+    base_url: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")

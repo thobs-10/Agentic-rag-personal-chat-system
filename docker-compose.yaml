@@ -35,6 +35,7 @@ services:
     environment:
       - QDRANT_HOST=qdrant
       - QDRANT_PORT=6333
+      - OLLAMA_BASE_URL=http://ollama:11434
       - LOG_LEVEL=INFO
     networks:
       - app-network
@@ -42,6 +43,21 @@ services:
     depends_on:
       - qdrant
       - ollama
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: agentic-rag-frontend
+    ports:
+      - "8080:8080"
+    environment:
+      - BACKEND_URL=http://backend:8000
+    networks:
+      - app-network
+    restart: unless-stopped
+    depends_on:
+      - backend
 
   ingestion:
     build:

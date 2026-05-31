@@ -3,7 +3,7 @@ Base agent class for all specialized assistants.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, TypedDict
+from typing import Any, AsyncGenerator, Dict, List, Optional, TypedDict
 
 from loguru import logger
 
@@ -205,3 +205,29 @@ class BaseAgent(ABC):
                 "metadata": {},
                 "error": str(e),
             }
+
+    async def astream_query(
+        self,
+        query: str,
+    ) -> AsyncGenerator[Dict[str, Any], None]:
+        """Stream the agent response token by token via SSE-compatible dicts."""
+        relevant_docs = self.retrieve_relevant_context(query)
+        formatted_context = self._format_context_for_prompt(relevant_docs)
+        prompt = self._create_prompt(query, formatted_context)
+
+        try:
+            async for chunk in self.llm.astream(prompt):
+                if chunk:
+                    # extract .text and not yield the entire GenarationChunk object
+                    text = getattr(chunk, "text", None)
+                    if text:
+                        yield {"type": "token", "content": text}
+        except Exception as e:
+            logger.error(f"Error streaming response: {e}", exc_info=True)
+            yield {"type": "error", "content": "I encountered an error generating the response."}
+
+        yield {
+            "type": "sources",
+            "sources": relevant_docs,
+            "agent_type": self.__class__.__name__,
+        }

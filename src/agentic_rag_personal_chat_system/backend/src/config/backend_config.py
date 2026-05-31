@@ -14,7 +14,7 @@ class APIConfig(BaseModel):
     port: int = 8000
     debug: bool = False
     reload: bool = True
-    allowed_origins: List[str] = ["http://localhost:3000"]
+    allowed_origins: List[str] = ["http://localhost:3000", "http://localhost:8080"]
 
 
 class VectorDBConfig(BaseModel):

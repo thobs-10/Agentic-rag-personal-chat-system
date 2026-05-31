@@ -1,0 +1,16 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install only what the Chainlit UI needs
+RUN pip install --no-cache-dir "chainlit>=2.0.0" "httpx>=0.27.0"
+
+# Copy the Chainlit application
+COPY src/agentic_rag_personal_chat_system/frontend/src/app.py ./app.py
+
+# Copy Chainlit welcome screen
+COPY chainlit.md ./chainlit.md
+
+EXPOSE 8080
+
+CMD ["chainlit", "run", "app.py", "--host", "0.0.0.0", "--port", "8080"]
