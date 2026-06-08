@@ -1,6 +1,4 @@
 [build-system]
-# requires = ["setuptools>=61.0.0", "wheel"]
-# build-backend = "setuptools.build_meta"
 requires = ["uv_build>=0.8.19,<0.9.0"]
 build-backend = "uv_build"
 
@@ -25,13 +23,6 @@ dependencies = [
 [tool.uv.build-backend]
 module-name = "agentic_rag_personal_chat_system"
 
-# [tool.setuptools.packages.find]
-# where = ["."]
-# include = ["src*"]
-
-# [tool.setuptools.package-dir]
-# "" = "."
-
 [project.optional-dependencies]
 backend = [
     "fastapi[standard]>=0.115.14",
@@ -39,7 +30,7 @@ backend = [
     "langchain>=0.3.27",
     "langchain-community>=0.3.29",
     "qdrant-client>=1.14.2",
-    "sentence-transformers>=4.1.0",
+    # "sentence-transformers>=4.1.0",
 ]
 ingestion = [
     "qdrant-client>=1.14.2",
@@ -50,10 +41,7 @@ ingestion = [
     "langchain>=0.3.27",
     "pypdf>=6.0.0",
 ]
-frontend = [
-    "chainlit>=2.0.0",
-    "requests>=2.32.0",
-]
+frontend = ["chainlit>=2.0.0", "requests>=2.32.0"]
 dev = [
     "ruff==0.4.4",
     "setuptools-scm>=8.2.0",
