@@ -1,6 +1,6 @@
 services:
   qdrant:
-    image: qdrant/qdrant:latest
+    image: qdrant/qdrant:v1.14.2
     container_name: qdrant-db
     volumes:
       - qdrant_data:/qdrant/storage
@@ -21,7 +21,7 @@ services:
       retries: 5
 
   ollama:
-    image: ollama/ollama:latest
+    image: ollama/ollama:0.6.14
     container_name: ollama
     ports:
       - "11434:11434"
@@ -73,21 +73,6 @@ services:
     depends_on:
       backend:
         condition: service_healthy
-
-  frontend:
-    build:
-      context: .
-      dockerfile: Dockerfile.frontend
-    container_name: agentic-rag-frontend
-    ports:
-      - "8080:8080"
-    environment:
-      - BACKEND_URL=http://backend:8000
-    networks:
-      - app-network
-    restart: unless-stopped
-    depends_on:
-      - backend
 
   ingestion:
     build:
